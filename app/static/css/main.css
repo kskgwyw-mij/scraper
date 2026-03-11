@@ -16,12 +16,28 @@ body {
 .navbar {
   background: #2563eb;
   padding: 0.8rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .navbar-brand {
   color: #fff;
   text-decoration: none;
   font-size: 1.2rem;
   font-weight: 700;
+}
+.navbar-links {
+  display: flex;
+  gap: 1.5rem;
+}
+.navbar-link {
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: opacity 0.15s;
+}
+.navbar-link:hover {
+  opacity: 0.8;
 }
 
 /* Container */
@@ -134,6 +150,104 @@ body {
 /* Misc */
 .text-muted { color: #6b7280; }
 .recent-searches h2 { margin-bottom: 1rem; }
+
+/* Catalog Styles */
+.stats-box {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left: 4px solid #0891b2;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0891b2;
+}
+
+/* Filter Section */
+.filter-section {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.filter-section h2 {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  color: #1f2937;
+}
+
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  padding: 0 1rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Results Count */
+.results-count {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  color: #4b5563;
+  padding: 0 0.5rem;
+}
+
+/* Product Card Enhancement */
+.product-search-query {
+  font-size: 0.8rem;
+  color: #7c3aed;
+  background: #f3e8ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  display: inline-block;
+  margin: 0.25rem 0;
+}
 
 /* Footer */
 .footer {

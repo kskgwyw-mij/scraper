@@ -104,6 +104,72 @@ def predict(search_id: int):
     )
 
 
+@scraper_bp.route("/catalog")
+def catalog():
+    """Display a catalog of all scraped products from the database."""
+    page = request.args.get("page", 1, type=int)
+    search_keyword = request.args.get("search", "", type=str).strip()
+    min_price = request.args.get("min_price", "", type=str).strip()
+    max_price = request.args.get("max_price", "", type=str).strip()
+    location_filter = request.args.get("location", "", type=str).strip()
+    sort_by = request.args.get("sort", "newest", type=str)
+
+    # Build query
+    query = Product.query
+
+    # Apply filters
+    if search_keyword:
+        query = query.filter(Product.title.ilike(f"%{search_keyword}%"))
+
+    if min_price:
+        try:
+            query = query.filter(Product.price >= float(min_price))
+        except ValueError:
+            pass
+
+    if max_price:
+        try:
+            query = query.filter(Product.price <= float(max_price))
+        except ValueError:
+            pass
+
+    if location_filter:
+        query = query.filter(Product.location.ilike(f"%{location_filter}%"))
+
+    # Count total products before pagination
+    total_products = query.count()
+
+    # Apply sorting
+    if sort_by == "price_asc":
+        query = query.order_by(Product.price.asc().nulls_last())
+    elif sort_by == "price_desc":
+        query = query.order_by(Product.price.desc().nulls_last())
+    elif sort_by == "oldest":
+        query = query.order_by(Product.scraped_at.asc())
+    else:  # newest (default)
+        query = query.order_by(Product.scraped_at.desc())
+
+    # Pagination (20 items per page)
+    items_per_page = 20
+    paginated = query.paginate(page=page, per_page=items_per_page, error_out=False)
+
+    # Get unique searches for statistics
+    search_queries = SearchQuery.query.all()
+
+    return render_template(
+        "catalog.html",
+        paginated=paginated,
+        products=paginated.items,
+        search_keyword=search_keyword,
+        min_price=min_price,
+        max_price=max_price,
+        location_filter=location_filter,
+        sort_by=sort_by,
+        total_products=total_products,
+        search_queries=search_queries,
+    )
+
+
 @scraper_bp.route("/delete/<int:search_id>", methods=["POST"])
 def delete_search(search_id: int):
     """Delete a search query and all its associated products."""
