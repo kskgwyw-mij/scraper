@@ -22,6 +22,7 @@ def test_search_post_scrapes_and_redirects(client, db):
             "price": 100.0,
             "location": "Wien",
             "url": "https://www.willhaben.at/test",
+            "image_url": "https://cache.willhaben.at/testprodukt_hoved.jpg",
             "description": "Ein Test",
         }
     ]
@@ -35,6 +36,9 @@ def test_search_post_scrapes_and_redirects(client, db):
 
     assert response.status_code == 302
     assert "/scraper/products/" in response.headers["Location"]
+
+    stored_product = Product.query.one()
+    assert stored_product.image_url == "https://cache.willhaben.at/testprodukt_hoved.jpg"
 
 
 def test_search_post_passes_form_max_pages(client, db):
@@ -68,6 +72,7 @@ def test_products_page(client, db):
             "price": float(i * 50),
             "location": "Wien",
             "url": f"https://www.willhaben.at/ad/{i}",
+            "image_url": f"https://cache.willhaben.at/ad/{i}_hoved.jpg",
             "description": "",
         }
         for i in range(1, 4)
@@ -82,6 +87,7 @@ def test_products_page(client, db):
 
     assert response.status_code == 200
     assert b"Produkt 1" in response.data
+    assert b"https://cache.willhaben.at/ad/1_hoved.jpg" in response.data
 
 
 def test_predict_page(client, db):

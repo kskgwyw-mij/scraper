@@ -56,6 +56,7 @@ def search():
                 price=item["price"],
                 location=item["location"],
                 url=item["url"],
+                image_url=item.get("image_url"),
                 description=item["description"],
             )
             db.session.add(product)

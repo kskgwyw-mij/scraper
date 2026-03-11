@@ -121,6 +121,17 @@
   <div class="product-grid">
     {% for product in products %}
     <div class="product-card card">
+      {% if product.image_url %}
+      <div class="product-card__image-wrapper">
+        {% if product.url %}
+          <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-image-link">
+            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+          </a>
+        {% else %}
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="product-card__header">
         {% if product.url %}
           <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-title">

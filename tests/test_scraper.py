@@ -1,6 +1,12 @@
 import pytest
+import json
 from unittest.mock import patch, MagicMock
-from app.services.willhaben_scraper import _parse_price, _parse_listing, scrape_willhaben
+from app.services.willhaben_scraper import (
+    _extract_next_data_products,
+    _parse_price,
+    _parse_listing,
+    scrape_willhaben,
+)
 
 
 def test_parse_price_euro_format():
@@ -30,6 +36,7 @@ def test_parse_listing_basic():
 
     html = """
     <article>
+            <img src="https://cache.willhaben.at/mmo/test_hoved.jpg" alt="Cover Image" />
       <a data-testid="ad-detail-link" href="/iad/ad/12345">Cooles Produkt</a>
       <span data-testid="ad-price">€ 99,00</span>
       <span data-testid="ad-location">Wien</span>
@@ -43,6 +50,59 @@ def test_parse_listing_basic():
     assert result["price"] == pytest.approx(99.0)
     assert result["location"] == "Wien"
     assert "willhaben.at" in result["url"]
+    assert result["image_url"] == "https://cache.willhaben.at/mmo/test_hoved.jpg"
+
+
+def test_extract_next_data_products_includes_image_url():
+    payload = {
+        "props": {
+            "pageProps": {
+                "searchResult": {
+                    "advertSummaryList": {
+                        "advertSummary": [
+                            {
+                                "description": "Tolles Smartphone",
+                                "attributes": {
+                                    "attribute": [
+                                        {"name": "HEADING", "values": ["iPhone 14"]},
+                                        {"name": "PRICE", "values": ["€ 750,00"]},
+                                        {"name": "LOCATION", "values": ["Wien"]},
+                                    ]
+                                },
+                                "contextLinkList": {
+                                    "contextLink": [
+                                        {
+                                            "id": "adDetailLink",
+                                            "uri": "/iad/kaufen-und-verkaufen/d/iphone-14-12345/",
+                                        }
+                                    ]
+                                },
+                                "advertImageList": {
+                                    "advertImage": [
+                                        {
+                                            "mainImageUrl": "https://cache.willhaben.at/mmo/1/test_hoved.jpg"
+                                        }
+                                    ]
+                                },
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    html = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(payload)}"
+        "</script>"
+    )
+
+    result = _extract_next_data_products(html)
+
+    assert len(result) == 1
+    assert result[0]["title"] == "iPhone 14"
+    assert result[0]["image_url"] == "https://cache.willhaben.at/mmo/1/test_hoved.jpg"
+    assert result[0]["url"] == "https://www.willhaben.at/iad/kaufen-und-verkaufen/d/iphone-14-12345/"
 
 
 def test_scrape_willhaben_http_error():
@@ -70,11 +130,13 @@ def test_scrape_willhaben_parses_articles():
     mock_html = """
     <html><body>
       <article>
+                <img src="https://cache.willhaben.at/mmo/1/iphone14_hoved.jpg" alt="Cover Image">
         <a data-testid="ad-detail-link" href="/iad/ad/1">iPhone 14</a>
         <span data-testid="ad-price">€ 750,00</span>
         <span data-testid="ad-location">Salzburg</span>
       </article>
       <article>
+                <img src="https://cache.willhaben.at/mmo/1/iphone13_hoved.jpg" alt="Cover Image">
         <a data-testid="ad-detail-link" href="/iad/ad/2">iPhone 13</a>
         <span data-testid="ad-price">€ 550,00</span>
         <span data-testid="ad-location">Linz</span>
@@ -94,4 +156,6 @@ def test_scrape_willhaben_parses_articles():
     assert len(result) == 2
     assert result[0]["title"] == "iPhone 14"
     assert result[0]["price"] == pytest.approx(750.0)
+    assert result[0]["image_url"] == "https://cache.willhaben.at/mmo/1/iphone14_hoved.jpg"
     assert result[1]["price"] == pytest.approx(550.0)
+    assert result[1]["image_url"] == "https://cache.willhaben.at/mmo/1/iphone13_hoved.jpg"

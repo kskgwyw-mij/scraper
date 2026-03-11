@@ -24,6 +24,17 @@ WILLHABEN_SEARCH = (
 )
 
 
+def _normalize_url(url: str | None) -> str | None:
+    """Return an absolute URL for willhaben resources."""
+    if not url:
+        return None
+    if url.startswith("//"):
+        return f"https:{url}"
+    if url.startswith("/"):
+        return f"{WILLHABEN_BASE}{url}"
+    return url
+
+
 def _parse_price(text: str):
     """Extract a float price from a price string like '€ 1.234,56' or '1234,56 €'."""
     if not text:
@@ -33,6 +44,25 @@ def _parse_price(text: str):
         return float(cleaned)
     except (ValueError, TypeError):
         return None
+
+
+def _extract_image_url(article) -> str | None:
+    """Extract the most useful image URL from a listing article."""
+    image_tag = article.find("img")
+    if image_tag is None:
+        return None
+
+    for attr in ("data-src", "src", "data-original", "data-image"):
+        image_url = image_tag.get(attr)
+        if image_url:
+            return _normalize_url(image_url)
+
+    srcset = image_tag.get("srcset") or image_tag.get("data-srcset")
+    if not srcset:
+        return None
+
+    first_candidate = srcset.split(",")[0].strip().split(" ")[0]
+    return _normalize_url(first_candidate)
 
 
 def _parse_listing(article) -> dict:
@@ -45,7 +75,7 @@ def _parse_listing(article) -> dict:
     title = title_tag.get_text(strip=True) if title_tag else ""
 
     href = title_tag.get("href", "") if title_tag else ""
-    url = (WILLHABEN_BASE + href) if href.startswith("/") else href
+    url = _normalize_url(href) or ""
 
     price_tag = (
         article.find(attrs={"data-testid": "ad-price"})
@@ -63,14 +93,68 @@ def _parse_listing(article) -> dict:
         "p"
     )
     description = desc_tag.get_text(strip=True) if desc_tag else ""
+    image_url = _extract_image_url(article)
 
     return {
         "title": title,
         "price": price,
         "location": location,
         "url": url,
+        "image_url": image_url,
         "description": description,
     }
+
+
+def _extract_html_products(html: str) -> list[dict]:
+    """Extract products from rendered HTML articles."""
+    soup = BeautifulSoup(html, "lxml")
+
+    articles = soup.find_all("article")
+    if not articles:
+        articles = soup.select("[data-testid='ad-card'], li.search-result")
+
+    if not articles:
+        return []
+
+    page_results = [_parse_listing(article) for article in articles]
+    return [product for product in page_results if product["title"]]
+
+
+def _extract_advert_image_url(advert: dict) -> str | None:
+    """Extract an image URL from an advert summary in __NEXT_DATA__."""
+    advert_images = ((advert.get("advertImageList") or {}).get("advertImage")) or []
+    for image in advert_images:
+        image_url = _normalize_url(
+            image.get("mainImageUrl")
+            or image.get("thumbnailImageUrl")
+            or image.get("referenceImageUrl")
+        )
+        if image_url:
+            return image_url
+    return None
+
+
+def _merge_image_urls(primary_results: list[dict], html_results: list[dict]) -> list[dict]:
+    """Backfill missing image URLs in JSON-derived results from parsed HTML."""
+    image_by_url = {
+        item["url"]: item.get("image_url")
+        for item in html_results
+        if item.get("url") and item.get("image_url")
+    }
+    image_by_title = {
+        item["title"]: item.get("image_url")
+        for item in html_results
+        if item.get("title") and item.get("image_url")
+    }
+
+    for item in primary_results:
+        item["image_url"] = (
+            item.get("image_url")
+            or image_by_url.get(item.get("url", ""))
+            or image_by_title.get(item.get("title", ""))
+        )
+
+    return primary_results
 
 
 def _extract_next_data_products(html: str) -> list[dict]:
@@ -134,12 +218,16 @@ def _extract_next_data_products(html: str) -> list[dict]:
         if not detail_url:
             detail_url = advert.get("selfLink") or ""
 
+        detail_url = _normalize_url(detail_url) or ""
+        image_url = _extract_advert_image_url(advert)
+
         parsed.append(
             {
                 "title": title,
                 "price": _parse_price(str(price_text)),
                 "location": location,
                 "url": detail_url,
+                "image_url": image_url,
                 "description": description,
             }
         )
@@ -151,7 +239,7 @@ def scrape_willhaben(keyword: str, max_pages: int = 5, timeout: int = 10) -> lis
     """
     Scrape willhaben.at marketplace for *keyword* and return a list of product dicts.
 
-    Each dict contains: title, price (float|None), location, url, description.
+    Each dict contains: title, price (float|None), location, url, image_url, description.
     """
     results = []
     logger.info(
@@ -179,6 +267,9 @@ def scrape_willhaben(keyword: str, max_pages: int = 5, timeout: int = 10) -> lis
 
         page_results = _extract_next_data_products(response.text)
         if page_results:
+            if any(not item.get("image_url") for item in page_results):
+                html_results = _extract_html_products(response.text)
+                page_results = _merge_image_urls(page_results, html_results)
             logger.info(
                 "Page %d: extracted %d listings from __NEXT_DATA__",
                 page,
@@ -194,21 +285,11 @@ def scrape_willhaben(keyword: str, max_pages: int = 5, timeout: int = 10) -> lis
             page,
         )
 
-        soup = BeautifulSoup(response.text, "lxml")
-
-        # willhaben renders listings inside <article> elements
-        articles = soup.find_all("article")
-        if not articles:
-            # fallback: try common ad-list containers
-            articles = soup.select("[data-testid='ad-card'], li.search-result")
-
-        if not articles:
+        page_results = _extract_html_products(response.text)
+        if not page_results:
             logger.info("No listing containers found on page %d - stopping.", page)
             break
 
-        page_results = [_parse_listing(a) for a in articles]
-        # Filter out empty titles (navigation articles etc.)
-        page_results = [p for p in page_results if p["title"]]
         logger.info("Page %d: extracted %d listings from HTML", page, len(page_results))
         results.extend(page_results)
 

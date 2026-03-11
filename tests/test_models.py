@@ -22,6 +22,7 @@ def test_create_product(db):
         price=149.99,
         location="Wien",
         url="https://www.willhaben.at/example",
+        image_url="https://cache.willhaben.at/example_hoved.jpg",
         description="Sehr guter Zustand",
     )
     db.session.add(p)
@@ -29,6 +30,7 @@ def test_create_product(db):
 
     assert p.id is not None
     assert p.price == 149.99
+    assert p.image_url == "https://cache.willhaben.at/example_hoved.jpg"
 
 
 def test_product_to_dict(db):
@@ -41,6 +43,7 @@ def test_product_to_dict(db):
         title="Rotes Sofa",
         price=200.0,
         location="Graz",
+        image_url="https://cache.willhaben.at/sofa_hoved.jpg",
     )
     db.session.add(p)
     db.session.commit()
@@ -49,6 +52,7 @@ def test_product_to_dict(db):
     assert d["title"] == "Rotes Sofa"
     assert d["price"] == 200.0
     assert d["location"] == "Graz"
+    assert d["image_url"] == "https://cache.willhaben.at/sofa_hoved.jpg"
 
 
 def test_cascade_delete(db):

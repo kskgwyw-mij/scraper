@@ -31,6 +31,7 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=True)
     location = db.Column(db.String(255), nullable=True)
     url = db.Column(db.String(1000), nullable=True)
+    image_url = db.Column(db.String(1000), nullable=True)
     description = db.Column(db.Text, nullable=True)
     scraped_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -41,6 +42,7 @@ class Product(db.Model):
             "price": self.price,
             "location": self.location,
             "url": self.url,
+            "image_url": self.image_url,
             "description": self.description,
             "scraped_at": self.scraped_at.isoformat() if self.scraped_at else None,
         }
