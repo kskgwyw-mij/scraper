@@ -37,6 +37,28 @@ def test_search_post_scrapes_and_redirects(client, db):
     assert "/scraper/products/" in response.headers["Location"]
 
 
+def test_search_post_passes_form_max_pages(client, db):
+    from unittest.mock import patch
+
+    with patch("app.controllers.scraper.scrape_willhaben", return_value=[]) as mock_scrape:
+        response = client.post(
+            "/scraper/search",
+            data={"keyword": "testprodukt", "max_pages": "7"},
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 302
+    mock_scrape.assert_called_once_with("testprodukt", max_pages=7, timeout=10)
+
+
+def test_index_page_contains_default_max_pages(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert b'name="max_pages"' in response.data
+    assert b'value="5"' in response.data
+
+
 def test_products_page(client, db):
     from unittest.mock import patch
 

@@ -25,7 +25,14 @@ def search():
             flash("Please enter a search keyword.", "warning")
             return redirect(url_for("main.index"))
 
-        max_pages = current_app.config.get("SCRAPE_MAX_PAGES", 5)
+        default_max_pages = current_app.config.get("SCRAPE_MAX_PAGES", 5)
+        raw_max_pages = request.form.get("max_pages", "").strip()
+        try:
+            max_pages = int(raw_max_pages) if raw_max_pages else default_max_pages
+        except (TypeError, ValueError):
+            max_pages = default_max_pages
+
+        max_pages = max(1, max_pages)
         timeout = current_app.config.get("SCRAPE_REQUEST_TIMEOUT", 10)
 
         logger.info(

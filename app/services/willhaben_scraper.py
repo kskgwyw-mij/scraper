@@ -105,29 +105,24 @@ def _extract_next_data_products(html: str) -> list[dict]:
     search_result = page_props.get("searchResult") or {}
     adverts = (
         ((search_result.get("advertSummaryList") or {}).get("advertSummary")) or []
-        heading_values = attr_map.get("HEADING")
-        fallback_heading = advert.get("description") or ""
-        heading_source = heading_values or [fallback_heading]
-        raw_title = (heading_source[0] or "") if heading_source else ""
-        title = raw_title.strip()
-        price_text = (attr_map.get("PRICE") or [""])[0]
-        location = (attr_map.get("LOCATION") or [""])[0].strip()
-        body_dyn_values = attr_map.get("BODY_DYN")
-        fallback_body = advert.get("description") or ""
-        body_source = body_dyn_values or [fallback_body]
-        raw_description = (body_source[0] or "") if body_source else ""
-        description = raw_description.strip()
+    )
+
+    parsed: list[dict] = []
+    for advert in adverts:
+        attributes = ((advert.get("attributes") or {}).get("attribute")) or []
+        attr_map = {}
+        for entry in attributes:
+            name = entry.get("name")
+            values = entry.get("values") or []
             if name and values:
                 attr_map[name] = values
 
-        title = (
-            (attr_map.get("HEADING") or [advert.get("description") or ""])[0] or ""
-        ).strip()
+        heading_values = attr_map.get("HEADING") or [advert.get("description") or ""]
+        title = (heading_values[0] or "").strip()
         price_text = (attr_map.get("PRICE") or [""])[0]
         location = (attr_map.get("LOCATION") or [""])[0].strip()
-        description = (attr_map.get("BODY_DYN") or [advert.get("description") or ""])[
-            0
-        ].strip()
+        body_values = attr_map.get("BODY_DYN") or [advert.get("description") or ""]
+        description = (body_values[0] or "").strip()
 
         detail_url = ""
         links = ((advert.get("contextLinkList") or {}).get("contextLink")) or []
