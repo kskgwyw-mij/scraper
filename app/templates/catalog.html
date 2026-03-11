@@ -96,12 +96,37 @@
           <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Preis absteigend</option>
         </select>
       </div>
+
+      <div class="form-group">
+        <label for="percentile">Preis-Perzentile</label>
+        <input
+          type="number"
+          id="percentile"
+          name="percentile"
+          class="form-control"
+          min="1"
+          max="99"
+          step="1"
+          value="{{ percentile | int }}"
+        />
+      </div>
     </div>
 
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">🔍 Filtern</button>
+      <button
+        type="submit"
+        formaction="{{ url_for('scraper.catalog_predict') }}"
+        formmethod="get"
+        class="btn btn-info"
+      >
+        📈 Preisprognose
+      </button>
       <a href="{{ url_for('scraper.catalog') }}" class="btn btn-secondary">↺ Zurücksetzen</a>
     </div>
+    <p class="form-note text-muted">
+      Die Preisprognose nutzt alle Treffer der aktuellen Filter, nicht nur die sichtbare Seite.
+    </p>
   </form>
 </div>
 

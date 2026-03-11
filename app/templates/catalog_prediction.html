@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Preisprognose – Katalogfilter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Preisprognose für aktuelle Katalogfilter</h1>
+  <div class="actions">
+    <a href="{{ url_for('scraper.catalog', search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int) }}" class="btn btn-secondary">← Zurück zum Katalog</a>
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">🏠 Startseite</a>
+  </div>
+</div>
+
+<div class="card filter-summary-card">
+  <h2>Aktive Filter</h2>
+  <ul class="filter-summary-list">
+    {% if search_keyword %}<li><strong>Produktname:</strong> {{ search_keyword }}</li>{% endif %}
+    {% if min_price %}<li><strong>Minimalpreis:</strong> {{ min_price }} €</li>{% endif %}
+    {% if max_price %}<li><strong>Maximalpreis:</strong> {{ max_price }} €</li>{% endif %}
+    {% if location_filter %}<li><strong>Ort:</strong> {{ location_filter }}</li>{% endif %}
+    {% if not (search_keyword or min_price or max_price or location_filter) %}
+      <li>Keine Filter aktiv – die Prognose basiert auf dem gesamten Katalog.</li>
+    {% endif %}
+  </ul>
+  <p class="text-muted prediction-scope-text">
+    Die Prognose basiert auf {{ total_products }} aktuell gefilterten Produkten.
+  </p>
+</div>
+
+<div class="prediction-controls card">
+  <form method="GET" action="{{ url_for('scraper.catalog_predict') }}">
+    {% if search_keyword %}<input type="hidden" name="search" value="{{ search_keyword }}" />{% endif %}
+    {% if min_price %}<input type="hidden" name="min_price" value="{{ min_price }}" />{% endif %}
+    {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}" />{% endif %}
+    {% if location_filter %}<input type="hidden" name="location" value="{{ location_filter }}" />{% endif %}
+    <input type="hidden" name="sort" value="{{ sort_by }}" />
+
+    <div class="form-group">
+      <label for="percentile">Preis-Perzentile (1–99)</label>
+      <input
+        type="number"
+        id="percentile"
+        name="percentile"
+        class="form-control"
+        min="1"
+        max="99"
+        value="{{ percentile | int }}"
+        style="width: 100px; display: inline-block;"
+      />
+      <small class="text-muted">
+        50 = Medianpreis, &lt;50 = günstiger als der Markt, &gt;50 = teurer als der Markt
+      </small>
+    </div>
+    <button type="submit" class="btn btn-primary">Aktualisieren</button>
+  </form>
+</div>
+
+{% if prediction.count >= 3 %}
+<div class="prediction-result card">
+  <h2>Ergebnis</h2>
+  <div class="prediction-highlight">
+    <span class="prediction-label">Empfohlener Verkaufspreis ({{ percentile | int }}. Perzentile)</span>
+    <span class="prediction-value">{{ "%.2f"|format(prediction.predicted_price) }} €</span>
+  </div>
+
+  <table class="table stats-table">
+    <tbody>
+      <tr><th>Treffer im Katalogfilter</th><td>{{ total_products }}</td></tr>
+      <tr><th>Anzahl Angebote (bereinigt)</th><td>{{ prediction.count }}</td></tr>
+      <tr><th>Durchschnitt</th><td>{{ "%.2f"|format(prediction.mean) }} €</td></tr>
+      <tr><th>Median</th><td>{{ "%.2f"|format(prediction.median) }} €</td></tr>
+      <tr><th>Minimum</th><td>{{ "%.2f"|format(prediction.min) }} €</td></tr>
+      <tr><th>Maximum</th><td>{{ "%.2f"|format(prediction.max) }} €</td></tr>
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-warning">
+  Nicht genug Preisdaten für eine Prognose. Von {{ total_products }} aktuell gefilterten Produkten sind
+  mindestens 3 Angebote mit Preisangabe erforderlich (aktuell: {{ prediction.count }}).
+</div>
+{% endif %}
+{% endblock %}

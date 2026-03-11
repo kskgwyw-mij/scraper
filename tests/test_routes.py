@@ -115,6 +115,49 @@ def test_predict_page_not_enough_data(client, db):
     assert b"Nicht genug" in response.data
 
 
+def test_catalog_page_contains_prediction_action(client):
+    response = client.get("/scraper/catalog")
+
+    assert response.status_code == 200
+    assert b"/scraper/catalog/predict" in response.data
+
+
+def test_catalog_predict_page_uses_filters(client, db):
+    sq = SearchQuery(keyword="smartphones")
+    db.session.add(sq)
+    db.session.flush()
+
+    products = [
+        Product(search_query_id=sq.id, title="iPhone 14", price=300.0, location="Wien"),
+        Product(search_query_id=sq.id, title="iPhone 13", price=400.0, location="Wien"),
+        Product(search_query_id=sq.id, title="iPhone 12", price=500.0, location="Wien"),
+        Product(search_query_id=sq.id, title="Samsung Galaxy", price=800.0, location="Linz"),
+    ]
+    db.session.add_all(products)
+    db.session.commit()
+
+    response = client.get("/scraper/catalog/predict?search=iPhone&location=Wien&percentile=50")
+
+    assert response.status_code == 200
+    assert b"Preisprognose f\xc3\xbcr aktuelle Katalogfilter" in response.data
+    assert b"iPhone" in response.data
+    assert b"Wien" in response.data
+    assert b"3 aktuell gefilterten Produkten" in response.data
+
+
+def test_catalog_predict_page_not_enough_data(client, db):
+    sq = SearchQuery(keyword="moebel")
+    db.session.add(sq)
+    db.session.flush()
+    db.session.add(Product(search_query_id=sq.id, title="Sofa", price=120.0, location="Graz"))
+    db.session.commit()
+
+    response = client.get("/scraper/catalog/predict?search=Sofa")
+
+    assert response.status_code == 200
+    assert b"Nicht genug Preisdaten" in response.data
+
+
 def test_delete_search(client, db):
     sq = SearchQuery(keyword="zu_loeschen")
     db.session.add(sq)
