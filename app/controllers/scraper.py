@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, abort
+import logging
 from app import db
 from app.models import SearchQuery, Product
 from app.services.willhaben_scraper import scrape_willhaben
 from app.services.price_predictor import predict_price
 
 scraper_bp = Blueprint("scraper", __name__)
+logger = logging.getLogger(__name__)
 
 
 def _get_search_or_404(search_id: int) -> SearchQuery:
@@ -26,7 +28,15 @@ def search():
         max_pages = current_app.config.get("SCRAPE_MAX_PAGES", 5)
         timeout = current_app.config.get("SCRAPE_REQUEST_TIMEOUT", 10)
 
+        logger.info(
+            "Search requested: keyword='%s', max_pages=%d, timeout=%ss",
+            keyword,
+            max_pages,
+            timeout,
+        )
+
         raw_products = scrape_willhaben(keyword, max_pages=max_pages, timeout=timeout)
+        logger.info("Search finished: keyword='%s', products=%d", keyword, len(raw_products))
 
         search_query = SearchQuery(keyword=keyword)
         db.session.add(search_query)
