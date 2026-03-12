@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% from "macros.html" import online_duration %}
+{% block title %}Produktkatalog – Alle gescrapten Produkte{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📚 Produktkatalog</h1>
+  <p class="text-muted">Alle {{ total_products }} gescrapten Produkte aus der Datenbank</p>
+  <div class="actions">
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">← Zurück zur Startseite</a>
+  </div>
+</div>
+
+<!-- Statistik Box -->
+<div class="card stats-box">
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-label">Gesamt Produkte</div>
+      <div class="stat-value">{{ total_products }}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Suchvorgänge</div>
+      <div class="stat-value">{{ search_queries | length }}</div>
+    </div>
+    {% if products %}
+      <div class="stat-item">
+        <div class="stat-label">Auf dieser Seite</div>
+        <div class="stat-value">{{ products | length }}</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filter und Sortierung -->
+<div class="card filter-section">
+  <h2>Filter & Sortierung</h2>
+  <form method="GET" class="filter-form">
+    <div class="filter-row">
+      <div class="form-group">
+        <label for="search">Produktname</label>
+        <input
+          type="text"
+          id="search"
+          name="search"
+          class="form-control"
+          placeholder="z.B. iPhone, Fahrrad..."
+          value="{{ search_keyword }}"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="min_price">Min. Preis (€)</label>
+        <input
+          type="number"
+          id="min_price"
+          name="min_price"
+          class="form-control"
+          placeholder="z.B. 100"
+          value="{{ min_price }}"
+          step="0.01"
+          min="0"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="max_price">Max. Preis (€)</label>
+        <input
+          type="number"
+          id="max_price"
+          name="max_price"
+          class="form-control"
+          placeholder="z.B. 1000"
+          value="{{ max_price }}"
+          step="0.01"
+          min="0"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="location">Ort</label>
+        <input
+          type="text"
+          id="location"
+          name="location"
+          class="form-control"
+          placeholder="z.B. Wien, Kufstein..."
+          value="{{ location_filter }}"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="sort">Sortierung</label>
+        <select id="sort" name="sort" class="form-control">
+          <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Neueste zuerst</option>
+          <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Älteste zuerst</option>
+          <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Preis aufsteigend</option>
+          <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Preis absteigend</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="percentile">Preis-Perzentile</label>
+        <input
+          type="number"
+          id="percentile"
+          name="percentile"
+          class="form-control"
+          min="1"
+          max="99"
+          step="1"
+          value="{{ percentile | int }}"
+        />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">🔍 Filtern</button>
+      <button
+        type="submit"
+        formaction="{{ url_for('scraper.catalog_predict') }}"
+        formmethod="get"
+        class="btn btn-info"
+      >
+        📈 Preisprognose
+      </button>
+      <a href="{{ url_for('scraper.catalog') }}" class="btn btn-secondary">↺ Zurücksetzen</a>
+    </div>
+    <p class="form-note text-muted">
+      Die Preisprognose nutzt alle Treffer der aktuellen Filter, nicht nur die sichtbare Seite.
+    </p>
+  </form>
+</div>
+
+<!-- Produkte -->
+{% if products %}
+  <p class="results-count">
+    {% if search_keyword or min_price or max_price or location_filter %}
+      <strong>{{ products | length }} Produkt(e)</strong> gefunden
+      {% if paginated.total > products | length %}
+        (von {{ paginated.total }} insgesamt)
+      {% endif %}
+    {% else %}
+      Zeige <strong>{{ products | length }}</strong> von <strong>{{ paginated.total }}</strong> Produkten
+    {% endif %}
+  </p>
+
+  <div class="product-grid">
+    {% for product in products %}
+    <div class="product-card card">
+      {% if product.image_url %}
+      <div class="product-card__image-wrapper">
+        {% if product.url %}
+          <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-image-link">
+            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+          </a>
+        {% else %}
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="product-card__header">
+        {% if product.url %}
+          <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-title">
+            {{ product.title }}
+          </a>
+        {% else %}
+          <span class="product-title">{{ product.title }}</span>
+        {% endif %}
+      </div>
+      <div class="product-card__body">
+        <p class="product-price">
+          {% if product.price is not none %}
+            <strong>{{ "%.2f"|format(product.price) }} €</strong>
+          {% else %}
+            <span class="text-muted">Preis nicht verfügbar</span>
+          {% endif %}
+        </p>
+        {% if product.location %}
+          <p class="product-location">📍 {{ product.location }}</p>
+        {% endif %}
+        {% if product.search_query %}
+          <p class="product-search-query" title="Suchbegriff">
+            🔍 {{ product.search_query.keyword }}
+          </p>
+        {% endif %}
+        {% if product.description %}
+          <p class="product-description text-muted">{{ product.description[:150] }}{% if product.description | length > 150 %}…{% endif %}</p>
+        {% endif %}
+      </div>
+      <div class="product-card__footer text-muted">
+        Gefunden am {{ product.scraped_at.strftime('%d.%m.%Y %H:%M') }}
+        {{ online_duration(product) }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if paginated.pages > 1 %}
+  <div class="pagination">
+    {% if paginated.has_prev %}
+      <a href="{{ url_for('scraper.catalog', page=1, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by) }}" class="btn btn-secondary btn-sm">⏮ Erste</a>
+      <a href="{{ url_for('scraper.catalog', page=paginated.prev_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by) }}" class="btn btn-secondary btn-sm">◀ Vorherige</a>
+    {% endif %}
+
+    <div class="pagination-info">
+      Seite <strong>{{ paginated.page }}</strong> von <strong>{{ paginated.pages }}</strong>
+    </div>
+
+    {% if paginated.has_next %}
+      <a href="{{ url_for('scraper.catalog', page=paginated.next_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by) }}" class="btn btn-secondary btn-sm">Nächste ▶</a>
+      <a href="{{ url_for('scraper.catalog', page=paginated.pages, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by) }}" class="btn btn-secondary btn-sm">Letzte ⏭</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+{% else %}
+  <div class="card">
+    <p class="text-muted">
+      {% if total_products == 0 %}
+        Noch keine Produkte in der Datenbank. Starten Sie eine Suche auf der <a href="{{ url_for('main.index') }}">Startseite</a>.
+      {% else %}
+        Keine Produkte mit den gewählten Filtern gefunden. Versuchen Sie, die Filter anzupassen.
+      {% endif %}
+    </p>
+  </div>
+{% endif %}
+{% endblock %}

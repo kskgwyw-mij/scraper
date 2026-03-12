@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Preisprognose – {{ search_query.keyword }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Preisprognose für <em>{{ search_query.keyword }}</em></h1>
+  <div class="actions">
+    <a href="{{ url_for('scraper.products', search_id=search_query.id) }}" class="btn btn-secondary">← Produkte</a>
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">🏠 Startseite</a>
+  </div>
+</div>
+
+<div class="prediction-controls card">
+  <form method="GET" action="{{ url_for('scraper.predict', search_id=search_query.id) }}">
+    <div class="form-group">
+      <label for="percentile">Preis-Perzentile (1–99)</label>
+      <input
+        type="number"
+        id="percentile"
+        name="percentile"
+        class="form-control"
+        min="1"
+        max="99"
+        value="{{ percentile | int }}"
+        style="width: 100px; display: inline-block;"
+      />
+      <small class="text-muted">
+        50 = Medianpreis, &lt;50 = günstiger als der Markt, &gt;50 = teurer als der Markt
+      </small>
+    </div>
+    <button type="submit" class="btn btn-primary">Aktualisieren</button>
+  </form>
+</div>
+
+{% if prediction.count >= 3 %}
+<div class="prediction-result card">
+  <h2>Ergebnis</h2>
+  <div class="prediction-highlight">
+    <span class="prediction-label">Empfohlener Verkaufspreis ({{ percentile | int }}. Perzentile)</span>
+    <span class="prediction-value">{{ "%.2f"|format(prediction.predicted_price) }} €</span>
+  </div>
+
+  <table class="table stats-table">
+    <tbody>
+      <tr><th>Anzahl Angebote (bereinigt)</th><td>{{ prediction.count }}</td></tr>
+      <tr><th>Durchschnitt</th><td>{{ "%.2f"|format(prediction.mean) }} €</td></tr>
+      <tr><th>Median</th><td>{{ "%.2f"|format(prediction.median) }} €</td></tr>
+      <tr><th>Minimum</th><td>{{ "%.2f"|format(prediction.min) }} €</td></tr>
+      <tr><th>Maximum</th><td>{{ "%.2f"|format(prediction.max) }} €</td></tr>
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-warning">
+  Nicht genug Preisdaten für eine Prognose. Mindestens 3 Angebote mit Preisangabe erforderlich
+  (aktuell: {{ prediction.count }}).
+</div>
+{% endif %}
+{% endblock %}

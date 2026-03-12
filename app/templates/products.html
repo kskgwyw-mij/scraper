@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "macros.html" import online_duration %}
+{% block title %}Produkte – {{ search_query.keyword }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Suchergebnisse für <em>{{ search_query.keyword }}</em></h1>
+  <p class="text-muted">Gespeichert am {{ search_query.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+  <div class="actions">
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">← Zurück</a>
+    <a href="{{ url_for('scraper.predict', search_id=search_query.id) }}" class="btn btn-info">📈 Preisprognose</a>
+  </div>
+</div>
+
+{% if products %}
+<p>{{ products | length }} Produkt(e) gefunden</p>
+<div class="product-grid">
+  {% for product in products %}
+  <div class="product-card card">
+    {% if product.image_url %}
+    <div class="product-card__image-wrapper">
+      {% if product.url %}
+        <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-image-link">
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+        </a>
+      {% else %}
+        <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="product-card__header">
+      {% if product.url %}
+        <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-title">
+          {{ product.title }}
+        </a>
+      {% else %}
+        <span class="product-title">{{ product.title }}</span>
+      {% endif %}
+    </div>
+    <div class="product-card__body">
+      <p class="product-price">
+        {% if product.price is not none %}
+          <strong>{{ "%.2f"|format(product.price) }} €</strong>
+        {% else %}
+          <span class="text-muted">Preis nicht verfügbar</span>
+        {% endif %}
+      </p>
+      {% if product.location %}
+        <p class="product-location">📍 {{ product.location }}</p>
+      {% endif %}
+      {% if product.description %}
+        <p class="product-description text-muted">{{ product.description[:150] }}{% if product.description | length > 150 %}…{% endif %}</p>
+      {% endif %}
+    </div>
+    <div class="product-card__footer text-muted">
+      Gefunden am {{ product.scraped_at.strftime('%d.%m.%Y %H:%M') }}
+      {{ online_duration(product) }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">Keine Produkte für diese Suche gefunden.</p>
+{% endif %}
+{% endblock %}
