@@ -2,6 +2,7 @@ import re
 import time
 import logging
 import json
+from datetime import datetime, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -44,6 +45,33 @@ def _parse_price(text: str):
         return float(cleaned)
     except (ValueError, TypeError):
         return None
+
+
+def _parse_published_at(value: str | None) -> datetime | None:
+    """Parse a published-at timestamp string into a naive UTC datetime.
+
+    Willhaben stores the publication date as an ISO-8601 string (e.g.
+    ``"2024-01-15T10:30:00"``) or as a Unix timestamp in milliseconds.
+    Returns ``None`` when the value cannot be parsed.
+    """
+    if not value:
+        return None
+    # Millisecond Unix timestamp stored as a numeric string.
+    # Timestamps with more than 10 digits are in milliseconds (> year 2001 in ms).
+    _MS_TIMESTAMP_MIN_DIGITS = 11
+    stripped = value.strip()
+    if re.fullmatch(r"\d{10,13}", stripped):
+        ts_int = int(stripped)
+        if len(stripped) >= _MS_TIMESTAMP_MIN_DIGITS:
+            ts_int = ts_int // 1000
+        return datetime.fromtimestamp(ts_int, tz=timezone.utc).replace(tzinfo=None)
+    # ISO-8601 variants
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(stripped, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 def _extract_image_url(article) -> str | None:
@@ -95,6 +123,16 @@ def _parse_listing(article) -> dict:
     description = desc_tag.get_text(strip=True) if desc_tag else ""
     image_url = _extract_image_url(article)
 
+    # Try to extract the publication date from a <time> element or a
+    # dedicated data-testid attribute used by willhaben's rendered HTML.
+    published_at: datetime | None = None
+    date_tag = article.find(attrs={"data-testid": "ad-posted-date"}) or article.find(
+        "time"
+    )
+    if date_tag:
+        raw_date = date_tag.get("datetime") or date_tag.get_text(strip=True)
+        published_at = _parse_published_at(raw_date)
+
     return {
         "title": title,
         "price": price,
@@ -102,6 +140,7 @@ def _parse_listing(article) -> dict:
         "url": url,
         "image_url": image_url,
         "description": description,
+        "published_at": published_at,
     }
 
 
@@ -208,6 +247,13 @@ def _extract_next_data_products(html: str) -> list[dict]:
         body_values = attr_map.get("BODY_DYN") or [advert.get("description") or ""]
         description = (body_values[0] or "").strip()
 
+        # willhaben exposes the listing publication date under the "PUBLISHED"
+        # or "STARTDATE" attribute (value is an ISO-8601 string or ms epoch).
+        raw_published = (
+            (attr_map.get("PUBLISHED") or attr_map.get("STARTDATE") or [""])[0]
+        )
+        published_at = _parse_published_at(str(raw_published)) if raw_published else None
+
         detail_url = ""
         links = ((advert.get("contextLinkList") or {}).get("contextLink")) or []
         for link in links:
@@ -229,6 +275,7 @@ def _extract_next_data_products(html: str) -> list[dict]:
                 "url": detail_url,
                 "image_url": image_url,
                 "description": description,
+                "published_at": published_at,
             }
         )
 
