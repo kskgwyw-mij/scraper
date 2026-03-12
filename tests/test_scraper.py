@@ -1,10 +1,12 @@
 import pytest
 import json
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 from app.services.willhaben_scraper import (
     _extract_next_data_products,
     _parse_price,
     _parse_listing,
+    _parse_published_at,
     scrape_willhaben,
 )
 
@@ -159,3 +161,148 @@ def test_scrape_willhaben_parses_articles():
     assert result[0]["image_url"] == "https://cache.willhaben.at/mmo/1/iphone14_hoved.jpg"
     assert result[1]["price"] == pytest.approx(550.0)
     assert result[1]["image_url"] == "https://cache.willhaben.at/mmo/1/iphone13_hoved.jpg"
+
+
+def test_parse_published_at_iso_format():
+    dt = _parse_published_at("2024-01-15T10:30:00")
+    assert dt == datetime(2024, 1, 15, 10, 30, 0)
+
+
+def test_parse_published_at_iso_with_z():
+    dt = _parse_published_at("2024-03-01T08:00:00Z")
+    assert dt == datetime(2024, 3, 1, 8, 0, 0)
+
+
+def test_parse_published_at_date_only():
+    dt = _parse_published_at("2024-06-20")
+    assert dt == datetime(2024, 6, 20, 0, 0, 0)
+
+
+def test_parse_published_at_ms_timestamp():
+    # 2024-01-15 10:30:00 UTC in milliseconds
+    ms = 1705315800000
+    dt = _parse_published_at(str(ms))
+    assert dt is not None
+    assert dt.year == 2024
+    assert dt.month == 1
+    assert dt.day == 15
+
+
+def test_parse_published_at_empty():
+    assert _parse_published_at("") is None
+    assert _parse_published_at(None) is None
+
+
+def test_parse_published_at_invalid():
+    assert _parse_published_at("not-a-date") is None
+
+
+def test_parse_listing_with_published_at():
+    from bs4 import BeautifulSoup
+
+    html = """
+    <article>
+      <img src="https://cache.willhaben.at/mmo/test_hoved.jpg" alt="Cover Image" />
+      <a data-testid="ad-detail-link" href="/iad/ad/12345">Cooles Produkt</a>
+      <span data-testid="ad-price">€ 99,00</span>
+      <span data-testid="ad-location">Wien</span>
+      <time datetime="2024-02-10T09:00:00">10. Februar 2024</time>
+    </article>
+    """
+    soup = BeautifulSoup(html, "lxml")
+    article = soup.find("article")
+    result = _parse_listing(article)
+
+    assert result["published_at"] == datetime(2024, 2, 10, 9, 0, 0)
+
+
+def test_parse_listing_without_published_at():
+    from bs4 import BeautifulSoup
+
+    html = """
+    <article>
+      <a data-testid="ad-detail-link" href="/iad/ad/99">Produkt ohne Datum</a>
+      <span data-testid="ad-price">€ 50,00</span>
+    </article>
+    """
+    soup = BeautifulSoup(html, "lxml")
+    article = soup.find("article")
+    result = _parse_listing(article)
+
+    assert result["published_at"] is None
+
+
+def test_extract_next_data_products_with_published_at():
+    payload = {
+        "props": {
+            "pageProps": {
+                "searchResult": {
+                    "advertSummaryList": {
+                        "advertSummary": [
+                            {
+                                "description": "Laptop",
+                                "attributes": {
+                                    "attribute": [
+                                        {"name": "HEADING", "values": ["MacBook Pro"]},
+                                        {"name": "PRICE", "values": ["€ 1200,00"]},
+                                        {"name": "LOCATION", "values": ["Graz"]},
+                                        {"name": "PUBLISHED", "values": ["2024-03-05T14:00:00"]},
+                                    ]
+                                },
+                                "contextLinkList": {"contextLink": []},
+                                "advertImageList": {"advertImage": []},
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    html = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(payload)}"
+        "</script>"
+    )
+
+    result = _extract_next_data_products(html)
+
+    assert len(result) == 1
+    assert result[0]["title"] == "MacBook Pro"
+    assert result[0]["published_at"] == datetime(2024, 3, 5, 14, 0, 0)
+
+
+def test_extract_next_data_products_without_published_at():
+    payload = {
+        "props": {
+            "pageProps": {
+                "searchResult": {
+                    "advertSummaryList": {
+                        "advertSummary": [
+                            {
+                                "description": "Kamera",
+                                "attributes": {
+                                    "attribute": [
+                                        {"name": "HEADING", "values": ["Canon EOS"]},
+                                        {"name": "PRICE", "values": ["€ 400,00"]},
+                                        {"name": "LOCATION", "values": ["Salzburg"]},
+                                    ]
+                                },
+                                "contextLinkList": {"contextLink": []},
+                                "advertImageList": {"advertImage": []},
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    html = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(payload)}"
+        "</script>"
+    )
+
+    result = _extract_next_data_products(html)
+
+    assert len(result) == 1
+    assert result[0]["published_at"] is None

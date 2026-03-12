@@ -33,6 +33,7 @@ class Product(db.Model):
     url = db.Column(db.String(1000), nullable=True)
     image_url = db.Column(db.String(1000), nullable=True)
     description = db.Column(db.Text, nullable=True)
+    published_at = db.Column(db.DateTime, nullable=True)
     scraped_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self):
@@ -44,6 +45,7 @@ class Product(db.Model):
             "url": self.url,
             "image_url": self.image_url,
             "description": self.description,
+            "published_at": self.published_at.isoformat() if self.published_at else None,
             "scraped_at": self.scraped_at.isoformat() if self.scraped_at else None,
         }
 

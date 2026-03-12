@@ -116,6 +116,7 @@ def search():
                 url=item["url"],
                 image_url=item.get("image_url"),
                 description=item["description"],
+                published_at=item.get("published_at"),
             )
             db.session.add(product)
 

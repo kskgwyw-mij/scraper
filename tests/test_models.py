@@ -53,6 +53,29 @@ def test_product_to_dict(db):
     assert d["price"] == 200.0
     assert d["location"] == "Graz"
     assert d["image_url"] == "https://cache.willhaben.at/sofa_hoved.jpg"
+    assert d["published_at"] is None
+
+
+def test_product_published_at(db):
+    from datetime import datetime
+
+    sq = SearchQuery(keyword="kamera")
+    db.session.add(sq)
+    db.session.flush()
+
+    pub = datetime(2024, 3, 10, 9, 30, 0)
+    p = Product(
+        search_query_id=sq.id,
+        title="Canon EOS",
+        price=400.0,
+        published_at=pub,
+    )
+    db.session.add(p)
+    db.session.commit()
+
+    assert p.published_at == pub
+    d = p.to_dict()
+    assert d["published_at"] == "2024-03-10T09:30:00"
 
 
 def test_cascade_delete(db):
