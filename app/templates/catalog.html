@@ -113,7 +113,7 @@
       </div>
 
       <div class="form-group">
-        <label for="better_only">Trefferqualität</label>
+        <label>Anzeigeoptionen</label>
         <div>
           <label>
             <input
@@ -124,6 +124,18 @@
               {% if better_only %}checked{% endif %}
             />
             Nur beste Treffer
+          </label>
+        </div>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              id="with_image"
+              name="with_image"
+              value="1"
+              {% if with_image %}checked{% endif %}
+            />
+            Nur Produkte mit Bild
           </label>
         </div>
       </div>
@@ -150,7 +162,7 @@
 <!-- Produkte -->
 {% if products %}
   <p class="results-count">
-    {% if search_keyword or min_price or max_price or location_filter or better_only %}
+    {% if search_keyword or min_price or max_price or location_filter or better_only or with_image %}
       <strong>{{ products | length }} Produkt(e)</strong> gefunden
       {% if paginated.total > products | length %}
         (von {{ paginated.total }} insgesamt)
@@ -221,8 +233,8 @@
   {% if paginated.pages > 1 %}
   <div class="pagination">
     {% if paginated.has_prev %}
-      <a href="{{ url_for('scraper.catalog', page=1, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '') }}" class="btn btn-secondary btn-sm">⏮ Erste</a>
-      <a href="{{ url_for('scraper.catalog', page=paginated.prev_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '') }}" class="btn btn-secondary btn-sm">◀ Vorherige</a>
+      <a href="{{ url_for('scraper.catalog', page=1, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '', with_image='1' if with_image else '') }}" class="btn btn-secondary btn-sm">⏮ Erste</a>
+      <a href="{{ url_for('scraper.catalog', page=paginated.prev_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '', with_image='1' if with_image else '') }}" class="btn btn-secondary btn-sm">◀ Vorherige</a>
     {% endif %}
 
     <div class="pagination-info">
@@ -230,8 +242,8 @@
     </div>
 
     {% if paginated.has_next %}
-      <a href="{{ url_for('scraper.catalog', page=paginated.next_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '') }}" class="btn btn-secondary btn-sm">Nächste ▶</a>
-      <a href="{{ url_for('scraper.catalog', page=paginated.pages, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '') }}" class="btn btn-secondary btn-sm">Letzte ⏭</a>
+      <a href="{{ url_for('scraper.catalog', page=paginated.next_num, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '', with_image='1' if with_image else '') }}" class="btn btn-secondary btn-sm">Nächste ▶</a>
+      <a href="{{ url_for('scraper.catalog', page=paginated.pages, search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '', with_image='1' if with_image else '') }}" class="btn btn-secondary btn-sm">Letzte ⏭</a>
     {% endif %}
   </div>
   {% endif %}

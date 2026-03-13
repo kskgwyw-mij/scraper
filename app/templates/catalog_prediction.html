@@ -5,7 +5,7 @@
 <div class="page-header">
   <h1>Preisprognose für aktuelle Katalogfilter</h1>
   <div class="actions">
-    <a href="{{ url_for('scraper.catalog', search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '') }}" class="btn btn-secondary">← Zurück zum Katalog</a>
+    <a href="{{ url_for('scraper.catalog', search=search_keyword, min_price=min_price, max_price=max_price, location=location_filter, sort=sort_by, percentile=percentile | int, better_only='1' if better_only else '', with_image='1' if with_image else '') }}" class="btn btn-secondary">← Zurück zum Katalog</a>
     <a href="{{ url_for('main.index') }}" class="btn btn-secondary">🏠 Startseite</a>
   </div>
 </div>
@@ -18,7 +18,8 @@
     {% if max_price %}<li><strong>Maximalpreis:</strong> {{ max_price }} €</li>{% endif %}
     {% if location_filter %}<li><strong>Ort:</strong> {{ location_filter }}</li>{% endif %}
     {% if better_only %}<li><strong>Trefferqualität:</strong> Nur beste Treffer</li>{% endif %}
-    {% if not (search_keyword or min_price or max_price or location_filter or better_only) %}
+    {% if with_image %}<li><strong>Bild:</strong> Nur Produkte mit Bild</li>{% endif %}
+    {% if not (search_keyword or min_price or max_price or location_filter or better_only or with_image) %}
       <li>Keine Filter aktiv – die Prognose basiert auf dem gesamten Katalog.</li>
     {% endif %}
   </ul>
@@ -34,6 +35,7 @@
     {% if max_price %}<input type="hidden" name="max_price" value="{{ max_price }}" />{% endif %}
     {% if location_filter %}<input type="hidden" name="location" value="{{ location_filter }}" />{% endif %}
     {% if better_only %}<input type="hidden" name="better_only" value="1" />{% endif %}
+    {% if with_image %}<input type="hidden" name="with_image" value="1" />{% endif %}
     <input type="hidden" name="sort" value="{{ sort_by }}" />
 
     <div class="form-group">

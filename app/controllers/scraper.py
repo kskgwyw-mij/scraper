@@ -39,6 +39,7 @@ def _get_catalog_filters() -> dict[str, object]:
         "location_filter": request.args.get("location", "", type=str).strip(),
         "sort_by": sort_by,
         "better_only": bool(request.args.get("better_only", type=str)),
+        "with_image": bool(request.args.get("with_image", type=str)),
     }
 
 
@@ -49,6 +50,7 @@ def _apply_catalog_filters(query, filters: dict[str, object]):
     max_price = str(filters["max_price"])
     location_filter = str(filters["location_filter"])
     better_only = bool(filters["better_only"])
+    with_image = bool(filters["with_image"])
 
     if search_keyword:
         query = query.filter(Product.title.ilike(f"%{search_keyword}%"))
@@ -70,6 +72,9 @@ def _apply_catalog_filters(query, filters: dict[str, object]):
 
     if better_only:
         query = query.filter(Product.is_better_result.is_(True))
+
+    if with_image:
+        query = query.filter(Product.image_url.isnot(None), Product.image_url != "")
 
     return query
 
@@ -223,6 +228,7 @@ def catalog():
         location_filter=filters["location_filter"],
         sort_by=filters["sort_by"],
         better_only=filters["better_only"],
+        with_image=filters["with_image"],
         percentile=percentile,
         total_products=total_products,
         search_queries=search_queries,
@@ -248,6 +254,7 @@ def catalog_predict():
         location_filter=filters["location_filter"],
         sort_by=filters["sort_by"],
         better_only=filters["better_only"],
+        with_image=filters["with_image"],
         total_products=len(filtered_products),
     )
 
