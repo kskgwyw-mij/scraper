@@ -15,13 +15,27 @@ def _ensure_schema() -> None:
         return
 
     product_columns = {column["name"] for column in inspector.get_columns("products")}
-    if "image_url" in product_columns:
-        return
 
     with db.engine.begin() as connection:
-        connection.execute(text("ALTER TABLE products ADD COLUMN image_url VARCHAR(1000)"))
+        if "image_url" not in product_columns:
+            connection.execute(
+                text("ALTER TABLE products ADD COLUMN image_url VARCHAR(1000)")
+            )
+            logger.info("Added missing column 'products.image_url'.")
 
-    logger.info("Added missing column 'products.image_url'.")
+        if "image_match_score" not in product_columns:
+            connection.execute(
+                text("ALTER TABLE products ADD COLUMN image_match_score FLOAT")
+            )
+            logger.info("Added missing column 'products.image_match_score'.")
+
+        if "is_better_result" not in product_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE products ADD COLUMN is_better_result BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+            logger.info("Added missing column 'products.is_better_result'.")
 
 
 def create_app(config_name="default"):
