@@ -14,19 +14,12 @@
   <p class="text-muted">Die Preisprognose basiert nur auf als "beste Treffer" klassifizierten Produkten.</p>
   <form method="GET" action="{{ url_for('scraper.predict', search_id=search_query.id) }}">
     <div class="form-group">
-      <label for="percentile">Preis-Perzentile (1–99)</label>
-      <input
-        type="number"
-        id="percentile"
-        name="percentile"
-        class="form-control"
-        min="1"
-        max="99"
-        value="{{ percentile | int }}"
-        style="width: 100px; display: inline-block;"
-      />
+      <label for="percentile">Preisposition: <span id="pct-label">{{ percentile | int }}%</span></label>
+      <input type="range" id="percentile" name="percentile" class="form-range"
+             min="10" max="90" value="{{ percentile | int }}"
+             oninput="document.getElementById('pct-label').textContent=this.value+'%'" />
       <small class="text-muted">
-        50 = Medianpreis, &lt;50 = günstiger als der Markt, &gt;50 = teurer als der Markt
+        10% = sehr günstig &nbsp;·&nbsp; 50% = Marktmitte &nbsp;·&nbsp; 90% = gehoben
       </small>
     </div>
     <button type="submit" class="btn btn-primary">Aktualisieren</button>
@@ -34,6 +27,12 @@
 </div>
 
 {% if prediction.count >= 3 %}
+<div class="info-box">
+  <strong>Was bedeutet diese Prognose?</strong><br>
+  Basierend auf {{ prediction.count }} bereinigten Angeboten liegt ein fairer Preis
+  bei ca. <strong>{{ prediction.predicted_price | round(0) | int }} €</strong>
+  ({{ percentile | int }}%-Perzentile: {{ percentile | int }}% der Angebote sind günstiger).
+</div>
 <div class="prediction-result card">
   <h2>Ergebnis</h2>
   <div class="prediction-highlight">
