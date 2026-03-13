@@ -33,6 +33,21 @@ BETTER_RESULT_THRESHOLD: float = 0.25
 _IMAGE_DOWNLOAD_TIMEOUT: int = 5  # seconds
 
 
+def _coerce_feature_tensor(features):
+    """Return a torch Tensor from CLIP feature outputs across API variants."""
+    # transformers may return tensors, tuples, or ModelOutput-like objects.
+    if hasattr(features, "norm"):
+        return features
+    if isinstance(features, (tuple, list)) and features:
+        return _coerce_feature_tensor(features[0])
+
+    pooler_output = getattr(features, "pooler_output", None)
+    if pooler_output is not None and hasattr(pooler_output, "norm"):
+        return pooler_output
+
+    raise TypeError(f"Unsupported CLIP feature output type: {type(features)!r}")
+
+
 def _load_clip() -> bool:
     """Load the CLIP model lazily (once per process).
 
@@ -104,13 +119,25 @@ def score_image_keyword_match(image_url: str, keyword: str) -> Optional[float]:
             truncation=True,
         )
         with torch.no_grad():
-            image_features = _clip_model.get_image_features(
-                pixel_values=inputs["pixel_values"]
-            )
-            text_features = _clip_model.get_text_features(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-            )
+            outputs = _clip_model(**inputs)
+
+            image_features = getattr(outputs, "image_embeds", None)
+            text_features = getattr(outputs, "text_embeds", None)
+
+            # Fallback for older/newer transformers variants where embeds are
+            # not exposed on model forward output.
+            if image_features is None:
+                image_features = _clip_model.get_image_features(
+                    pixel_values=inputs["pixel_values"]
+                )
+            if text_features is None:
+                text_features = _clip_model.get_text_features(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                )
+
+            image_features = _coerce_feature_tensor(image_features)
+            text_features = _coerce_feature_tensor(text_features)
 
         # L2-normalise and compute cosine similarity
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)

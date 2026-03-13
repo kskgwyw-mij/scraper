@@ -11,6 +11,7 @@
 </div>
 
 <div class="prediction-controls card">
+  <p class="text-muted">Die Preisprognose basiert nur auf als "beste Treffer" klassifizierten Produkten.</p>
   <form method="GET" action="{{ url_for('scraper.predict', search_id=search_query.id) }}">
     <div class="form-group">
       <label for="percentile">Preis-Perzentile (1–99)</label>
@@ -52,7 +53,7 @@
 </div>
 {% else %}
 <div class="alert alert-warning">
-  Nicht genug Preisdaten für eine Prognose. Mindestens 3 Angebote mit Preisangabe erforderlich
+  Nicht genug Preisdaten für eine Prognose aus besten Treffern. Mindestens 3 Angebote mit Preisangabe erforderlich
   (aktuell: {{ prediction.count }}).
 </div>
 {% endif %}

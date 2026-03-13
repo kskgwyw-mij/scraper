@@ -26,7 +26,7 @@ def _get_percentile_arg() -> float:
         return 50.0
 
 
-def _get_catalog_filters() -> dict[str, str]:
+def _get_catalog_filters() -> dict[str, object]:
     """Read catalog filter values from the current request."""
     sort_by = request.args.get("sort", "newest", type=str)
     if sort_by not in {"newest", "oldest", "price_asc", "price_desc"}:
@@ -38,28 +38,38 @@ def _get_catalog_filters() -> dict[str, str]:
         "max_price": request.args.get("max_price", "", type=str).strip(),
         "location_filter": request.args.get("location", "", type=str).strip(),
         "sort_by": sort_by,
+        "better_only": bool(request.args.get("better_only", type=str)),
     }
 
 
-def _apply_catalog_filters(query, filters: dict[str, str]):
+def _apply_catalog_filters(query, filters: dict[str, object]):
     """Apply catalog filters to a product query."""
-    if filters["search_keyword"]:
-        query = query.filter(Product.title.ilike(f"%{filters['search_keyword']}%"))
+    search_keyword = str(filters["search_keyword"])
+    min_price = str(filters["min_price"])
+    max_price = str(filters["max_price"])
+    location_filter = str(filters["location_filter"])
+    better_only = bool(filters["better_only"])
 
-    if filters["min_price"]:
+    if search_keyword:
+        query = query.filter(Product.title.ilike(f"%{search_keyword}%"))
+
+    if min_price:
         try:
-            query = query.filter(Product.price >= float(filters["min_price"]))
+            query = query.filter(Product.price >= float(min_price))
         except ValueError:
             pass
 
-    if filters["max_price"]:
+    if max_price:
         try:
-            query = query.filter(Product.price <= float(filters["max_price"]))
+            query = query.filter(Product.price <= float(max_price))
         except ValueError:
             pass
 
-    if filters["location_filter"]:
-        query = query.filter(Product.location.ilike(f"%{filters['location_filter']}%"))
+    if location_filter:
+        query = query.filter(Product.location.ilike(f"%{location_filter}%"))
+
+    if better_only:
+        query = query.filter(Product.is_better_result.is_(True))
 
     return query
 
@@ -166,9 +176,12 @@ def products(search_id: int):
 
 @scraper_bp.route("/predict/<int:search_id>")
 def predict(search_id: int):
-    """Show price prediction for a search query's products."""
+    """Show price prediction for a search query's better-result products."""
     search_query = _get_search_or_404(search_id)
-    all_products = Product.query.filter_by(search_query_id=search_id).all()
+    all_products = Product.query.filter_by(
+        search_query_id=search_id,
+        is_better_result=True,
+    ).all()
 
     percentile = _get_percentile_arg()
 
@@ -209,6 +222,7 @@ def catalog():
         max_price=filters["max_price"],
         location_filter=filters["location_filter"],
         sort_by=filters["sort_by"],
+        better_only=filters["better_only"],
         percentile=percentile,
         total_products=total_products,
         search_queries=search_queries,
@@ -233,6 +247,7 @@ def catalog_predict():
         max_price=filters["max_price"],
         location_filter=filters["location_filter"],
         sort_by=filters["sort_by"],
+        better_only=filters["better_only"],
         total_products=len(filtered_products),
     )
 

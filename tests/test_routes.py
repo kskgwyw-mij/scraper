@@ -94,8 +94,15 @@ def test_predict_page(client, db):
     sq = SearchQuery(keyword="laptop")
     db.session.add(sq)
     db.session.flush()
-    for price in [300.0, 400.0, 500.0, 600.0, 700.0]:
-        db.session.add(Product(search_query_id=sq.id, title="Laptop", price=price))
+    for i, price in enumerate([300.0, 400.0, 500.0, 600.0, 700.0]):
+        db.session.add(
+            Product(
+                search_query_id=sq.id,
+                title="Laptop",
+                price=price,
+                is_better_result=i < 3,
+            )
+        )
     db.session.commit()
 
     response = client.get(f"/scraper/predict/{sq.id}")
@@ -107,7 +114,14 @@ def test_predict_page_not_enough_data(client, db):
     sq = SearchQuery(keyword="rare_item")
     db.session.add(sq)
     db.session.flush()
-    db.session.add(Product(search_query_id=sq.id, title="Seltenes Ding", price=None))
+    db.session.add(
+        Product(
+            search_query_id=sq.id,
+            title="Seltenes Ding",
+            price=100.0,
+            is_better_result=False,
+        )
+    )
     db.session.commit()
 
     response = client.get(f"/scraper/predict/{sq.id}")
@@ -128,10 +142,34 @@ def test_catalog_predict_page_uses_filters(client, db):
     db.session.flush()
 
     products = [
-        Product(search_query_id=sq.id, title="iPhone 14", price=300.0, location="Wien"),
-        Product(search_query_id=sq.id, title="iPhone 13", price=400.0, location="Wien"),
-        Product(search_query_id=sq.id, title="iPhone 12", price=500.0, location="Wien"),
-        Product(search_query_id=sq.id, title="Samsung Galaxy", price=800.0, location="Linz"),
+        Product(
+            search_query_id=sq.id,
+            title="iPhone 14",
+            price=300.0,
+            location="Wien",
+            is_better_result=True,
+        ),
+        Product(
+            search_query_id=sq.id,
+            title="iPhone 13",
+            price=400.0,
+            location="Wien",
+            is_better_result=True,
+        ),
+        Product(
+            search_query_id=sq.id,
+            title="iPhone 12",
+            price=500.0,
+            location="Wien",
+            is_better_result=True,
+        ),
+        Product(
+            search_query_id=sq.id,
+            title="Samsung Galaxy",
+            price=800.0,
+            location="Linz",
+            is_better_result=False,
+        ),
     ]
     db.session.add_all(products)
     db.session.commit()
@@ -142,20 +180,57 @@ def test_catalog_predict_page_uses_filters(client, db):
     assert b"Preisprognose f\xc3\xbcr aktuelle Katalogfilter" in response.data
     assert b"iPhone" in response.data
     assert b"Wien" in response.data
-    assert b"3 aktuell gefilterten Produkten" in response.data
+    assert b"3 aktuell gefilterten besten Treffern" in response.data
 
 
 def test_catalog_predict_page_not_enough_data(client, db):
     sq = SearchQuery(keyword="moebel")
     db.session.add(sq)
     db.session.flush()
-    db.session.add(Product(search_query_id=sq.id, title="Sofa", price=120.0, location="Graz"))
+    db.session.add(
+        Product(
+            search_query_id=sq.id,
+            title="Sofa",
+            price=120.0,
+            location="Graz",
+            is_better_result=False,
+        )
+    )
     db.session.commit()
 
     response = client.get("/scraper/catalog/predict?search=Sofa")
 
     assert response.status_code == 200
     assert b"Nicht genug Preisdaten" in response.data
+
+
+def test_catalog_filter_better_only(client, db):
+    sq = SearchQuery(keyword="enten")
+    db.session.add(sq)
+    db.session.flush()
+    db.session.add_all(
+        [
+            Product(
+                search_query_id=sq.id,
+                title="Badeente Gelb",
+                price=10.0,
+                is_better_result=True,
+            ),
+            Product(
+                search_query_id=sq.id,
+                title="Badeente Blau",
+                price=12.0,
+                is_better_result=False,
+            ),
+        ]
+    )
+    db.session.commit()
+
+    response = client.get("/scraper/catalog?search=Badeente&better_only=1")
+
+    assert response.status_code == 200
+    assert b"Badeente Gelb" in response.data
+    assert b"Badeente Blau" not in response.data
 
 
 def test_delete_search(client, db):
