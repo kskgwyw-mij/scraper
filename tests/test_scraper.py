@@ -69,6 +69,7 @@ def test_extract_next_data_products_includes_image_url():
                                     "attribute": [
                                         {"name": "HEADING", "values": ["iPhone 14"]},
                                         {"name": "PRICE", "values": ["\u20ac 750,00"]},
+                                        {"name": "PRICE", "values": ["€ 750,00"]},
                                         {"name": "LOCATION", "values": ["Wien"]},
                                     ]
                                 },
@@ -77,6 +78,8 @@ def test_extract_next_data_products_includes_image_url():
                                         {
                                             "id": "iadShareLink",
                                             "uri": "https://www.willhaben.at/iad/kaufen-und-verkaufen/d/iphone-14-12345/",
+                                            "id": "adDetailLink",
+                                            "uri": "/iad/kaufen-und-verkaufen/d/iphone-14-12345/",
                                         }
                                     ]
                                 },

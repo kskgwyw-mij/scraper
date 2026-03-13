@@ -260,6 +260,7 @@ def _extract_next_data_products(html: str) -> list[dict]:
         #   2. seoSelfLink   → api.willhaben.at URL; extract the SEO path and
         #                      map it to www.willhaben.at/iad/…
         #   3. advert id     → construct /iad/object?adId=<id> as last resort
+        detail_url = ""
         links = ((advert.get("contextLinkList") or {}).get("contextLink")) or []
         link_by_id = {lnk.get("id"): lnk for lnk in links}
 
@@ -276,6 +277,9 @@ def _extract_next_data_products(html: str) -> list[dict]:
         advert_id = advert.get("id") or ""
         if not detail_url and advert_id:
             detail_url = f"{WILLHABEN_BASE}/iad/object?adId={advert_id}"
+        image_url = _extract_advert_image_url(advert)
+
+        detail_url = _normalize_url(detail_url) or ""
         image_url = _extract_advert_image_url(advert)
 
         parsed.append(
