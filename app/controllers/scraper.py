@@ -4,6 +4,7 @@ from app import db
 from app.models import SearchQuery, Product
 from app.services.willhaben_scraper import scrape_willhaben
 from app.services.price_predictor import predict_price
+from app.services.image_classifier import classify_products
 
 scraper_bp = Blueprint("scraper", __name__)
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ def search():
         db.session.add(search_query)
         db.session.flush()  # get the id before adding products
 
+        products_to_classify = []
         for item in raw_products:
             product = Product(
                 search_query_id=search_query.id,
@@ -119,6 +121,19 @@ def search():
                 published_at=item.get("published_at"),
             )
             db.session.add(product)
+            products_to_classify.append(product)
+
+        # Score each product image against the search keyword.
+        # classify_products sets image_match_score and is_better_result on every
+        # product in place.  When CLIP is unavailable the call is a fast no-op
+        # and all products remain is_better_result=False.
+        classify_products(products_to_classify, keyword)
+        logger.info(
+            "Image classification done: keyword='%s', better=%d/%d",
+            keyword,
+            sum(1 for p in products_to_classify if p.is_better_result),
+            len(products_to_classify),
+        )
 
         db.session.commit()
         flash(f"Scraped {len(raw_products)} listings for '{keyword}'.", "success")
@@ -136,10 +151,16 @@ def products(search_id: int):
         .order_by(Product.price.asc().nulls_last())
         .all()
     )
+
+    better_results = [p for p in all_products if p.is_better_result]
+    other_results = [p for p in all_products if not p.is_better_result]
+
     return render_template(
         "products.html",
         search_query=search_query,
         products=all_products,
+        better_results=better_results,
+        other_results=other_results,
     )
 
 

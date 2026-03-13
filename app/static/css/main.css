@@ -296,3 +296,60 @@ body {
   color: #9ca3af;
   font-size: .85rem;
 }
+
+/* Better Results */
+.better-results-section {
+  margin-bottom: 2rem;
+}
+
+.better-results-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #b45309;
+  margin-bottom: 0.25rem;
+}
+
+.better-results-badge {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.1rem 0.55rem;
+}
+
+.better-results-description {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.better-result-card {
+  border: 2px solid #fcd34d;
+  background: linear-gradient(to bottom, #fffbeb 0%, #fff 60%);
+}
+
+.better-result-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.image-score {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.other-results-title {
+  color: #4b5563;
+  margin-bottom: 1rem;
+}
