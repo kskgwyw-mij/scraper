@@ -63,10 +63,12 @@ def test_extract_next_data_products_includes_image_url():
                     "advertSummaryList": {
                         "advertSummary": [
                             {
+                                "id": "12345",
                                 "description": "Tolles Smartphone",
                                 "attributes": {
                                     "attribute": [
                                         {"name": "HEADING", "values": ["iPhone 14"]},
+                                        {"name": "PRICE", "values": ["\u20ac 750,00"]},
                                         {"name": "PRICE", "values": ["€ 750,00"]},
                                         {"name": "LOCATION", "values": ["Wien"]},
                                     ]
@@ -74,6 +76,8 @@ def test_extract_next_data_products_includes_image_url():
                                 "contextLinkList": {
                                     "contextLink": [
                                         {
+                                            "id": "iadShareLink",
+                                            "uri": "https://www.willhaben.at/iad/kaufen-und-verkaufen/d/iphone-14-12345/",
                                             "id": "adDetailLink",
                                             "uri": "/iad/kaufen-und-verkaufen/d/iphone-14-12345/",
                                         }
@@ -105,6 +109,7 @@ def test_extract_next_data_products_includes_image_url():
     assert result[0]["title"] == "iPhone 14"
     assert result[0]["image_url"] == "https://cache.willhaben.at/mmo/1/test_hoved.jpg"
     assert result[0]["url"] == "https://www.willhaben.at/iad/kaufen-und-verkaufen/d/iphone-14-12345/"
+
 
 
 def test_scrape_willhaben_http_error():

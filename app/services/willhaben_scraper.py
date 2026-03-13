@@ -254,15 +254,30 @@ def _extract_next_data_products(html: str) -> list[dict]:
         )
         published_at = _parse_published_at(str(raw_published)) if raw_published else None
 
+        # Build the web URL for the listing on www.willhaben.at.
+        # Priority:
+        #   1. iadShareLink  → already a www.willhaben.at URL
+        #   2. seoSelfLink   → api.willhaben.at URL; extract the SEO path and
+        #                      map it to www.willhaben.at/iad/…
+        #   3. advert id     → construct /iad/object?adId=<id> as last resort
         detail_url = ""
         links = ((advert.get("contextLinkList") or {}).get("contextLink")) or []
-        for link in links:
-            if link.get("id") == "adDetailLink":
-                detail_url = link.get("uri") or ""
-                break
+        link_by_id = {lnk.get("id"): lnk for lnk in links}
 
-        if not detail_url:
-            detail_url = advert.get("selfLink") or ""
+        detail_url = ""
+        if "iadShareLink" in link_by_id:
+            detail_url = link_by_id["iadShareLink"].get("uri") or ""
+        if not detail_url and "seoSelfLink" in link_by_id:
+            seo_uri = link_by_id["seoSelfLink"].get("uri") or ""
+            # seo_uri looks like: https://api.willhaben.at/restapi/v2/atverz/kaufen-und-verkaufen/d/{slug}/
+            # The path after "/atverz/" maps directly under www.willhaben.at/iad/
+            seo_match = re.search(r"/atverz/(kaufen-und-verkaufen/.+)", seo_uri)
+            if seo_match:
+                detail_url = f"{WILLHABEN_BASE}/iad/{seo_match.group(1)}"
+        advert_id = advert.get("id") or ""
+        if not detail_url and advert_id:
+            detail_url = f"{WILLHABEN_BASE}/iad/object?adId={advert_id}"
+        image_url = _extract_advert_image_url(advert)
 
         detail_url = _normalize_url(detail_url) or ""
         image_url = _extract_advert_image_url(advert)
