@@ -13,7 +13,10 @@
 </div>
 
 {% if products %}
-<p>{{ products | length }} Produkt(e) gefunden</p>
+<div class="result-summary">
+  <span class="badge-large">{{ products | length }} Angebote gefunden</span>
+  für „{{ search_query.keyword }}"
+</div>
 
 {# ── Better Results section ──────────────────────────────────────────────── #}
 {% if better_results %}
@@ -32,11 +35,17 @@
       <div class="product-card__image-wrapper">
         {% if product.url %}
           <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-image-link">
-            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy"
+                 onerror="this.src='/static/img/placeholder.svg'" />
           </a>
         {% else %}
-          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy"
+               onerror="this.src='/static/img/placeholder.svg'" />
         {% endif %}
+      </div>
+      {% else %}
+      <div class="product-card__image-wrapper">
+        <div class="product-img-placeholder">📷</div>
       </div>
       {% endif %}
       <div class="product-card__header">
@@ -92,11 +101,17 @@
       <div class="product-card__image-wrapper">
         {% if product.url %}
           <a href="{{ product.url }}" target="_blank" rel="noopener noreferrer" class="product-image-link">
-            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+            <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy"
+                 onerror="this.src='/static/img/placeholder.svg'" />
           </a>
         {% else %}
-          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy" />
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="product-image" loading="lazy"
+               onerror="this.src='/static/img/placeholder.svg'" />
         {% endif %}
+      </div>
+      {% else %}
+      <div class="product-card__image-wrapper">
+        <div class="product-img-placeholder">📷</div>
       </div>
       {% endif %}
       <div class="product-card__header">
