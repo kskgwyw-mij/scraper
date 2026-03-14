@@ -24,6 +24,8 @@ WILLHABEN_SEARCH = (
     "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz"
 )
 
+_CONDITION_SPLIT_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
+
 
 def _normalize_url(url: str | None) -> str | None:
     """Return an absolute URL for willhaben resources."""
@@ -44,6 +46,31 @@ def _parse_price(text: str):
     try:
         return float(cleaned)
     except (ValueError, TypeError):
+        return None
+
+
+def _clean_text(value: str | None) -> str:
+    """Strip HTML and normalize whitespace from a text value."""
+    if not value:
+        return ""
+    text = BeautifulSoup(str(value), "lxml").get_text(" ", strip=True)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _extract_next_data_payload(html: str) -> dict | None:
+    """Return the parsed __NEXT_DATA__ payload from a page, if present."""
+    match = re.search(
+        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    try:
+        return json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        logger.warning("Failed to decode __NEXT_DATA__ payload: %s", exc)
         return None
 
 
@@ -72,6 +99,18 @@ def _parse_published_at(value: str | None) -> datetime | None:
         except ValueError:
             continue
     return None
+
+
+def _normalize_item_condition(value: str | None) -> str | None:
+    """Normalize schema.org item conditions like 'UsedCondition'."""
+    if not value:
+        return None
+
+    condition = value.rsplit("/", maxsplit=1)[-1].strip()
+    if not condition:
+        return None
+
+    return _CONDITION_SPLIT_REGEX.sub(" ", condition)
 
 
 def _extract_image_url(article) -> str | None:
@@ -141,6 +180,9 @@ def _parse_listing(article) -> dict:
         "image_url": image_url,
         "description": description,
         "published_at": published_at,
+        "seller_name": None,
+        "item_condition": None,
+        "category_path": None,
     }
 
 
@@ -196,6 +238,196 @@ def _merge_image_urls(primary_results: list[dict], html_results: list[dict]) -> 
     return primary_results
 
 
+def _extract_product_json_ld(soup: BeautifulSoup) -> dict:
+    """Extract Product JSON-LD object from a detail page."""
+    for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+        raw_payload = script.string or script.get_text()
+        if not raw_payload:
+            continue
+
+        try:
+            payload = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            continue
+
+        candidates = payload if isinstance(payload, list) else [payload]
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+
+            candidate_type = candidate.get("@type")
+            if isinstance(candidate_type, list):
+                is_product = "Product" in candidate_type
+            else:
+                is_product = candidate_type == "Product"
+
+            if is_product:
+                return candidate
+
+    return {}
+
+
+def _extract_detail_data(html: str) -> dict:
+    """Extract additional listing details from an advert detail page."""
+    detail_data: dict[str, object] = {}
+
+    soup = BeautifulSoup(html, "lxml")
+    product_json_ld = _extract_product_json_ld(soup)
+    if product_json_ld:
+        offers = product_json_ld.get("offers")
+        if isinstance(offers, dict):
+            seller = offers.get("seller")
+            if isinstance(seller, dict):
+                seller_name = _clean_text(seller.get("name"))
+                if seller_name:
+                    detail_data["seller_name"] = seller_name
+
+            offer_price = _parse_price(str(offers.get("price") or ""))
+            if offer_price is not None:
+                detail_data["price"] = offer_price
+
+            item_condition = _normalize_item_condition(offers.get("itemCondition"))
+            if item_condition:
+                detail_data["item_condition"] = item_condition
+
+        ld_image = _normalize_url(product_json_ld.get("image"))
+        if ld_image:
+            detail_data["image_url"] = ld_image
+
+    payload = _extract_next_data_payload(html) or {}
+    page_props = (payload.get("props") or {}).get("pageProps") or {}
+    advert_details = page_props.get("advertDetails") or {}
+    if not advert_details:
+        return detail_data
+
+    attributes = ((advert_details.get("attributes") or {}).get("attribute")) or []
+    attr_map: dict[str, list[str]] = {}
+    for entry in attributes:
+        name = entry.get("name")
+        raw_values = entry.get("values") or []
+        values = [cleaned for raw in raw_values if (cleaned := _clean_text(raw))]
+        if name and values:
+            attr_map[name] = values
+
+    description = _clean_text(advert_details.get("description"))
+    if not description:
+        description = (attr_map.get("DESCRIPTION") or [""])[0]
+    if description:
+        detail_data["description"] = description
+
+    # Prefer the detail-page publication timestamp when available.
+    published_value = (
+        advert_details.get("publishedDate")
+        or advert_details.get("firstPublishedDate")
+        or advert_details.get("startDate")
+        or (attr_map.get("PUBLISHED") or attr_map.get("STARTDATE") or [""])[0]
+    )
+    published_at = _parse_published_at(str(published_value)) if published_value else None
+    if published_at:
+        detail_data["published_at"] = published_at
+
+    if "seller_name" not in detail_data:
+        seller_name = _clean_text((advert_details.get("organisationDetails") or {}).get("orgName"))
+        if not seller_name:
+            seller_name = _clean_text((advert_details.get("sellerProfileUserData") or {}).get("name"))
+        if seller_name:
+            detail_data["seller_name"] = seller_name
+
+    address_details = advert_details.get("advertAddressDetails") or {}
+    location_candidates = [
+        address_details.get("postalName"),
+        address_details.get("district"),
+        address_details.get("province"),
+        (attr_map.get("LOCATION/ADDRESS_2") or [""])[0],
+        (attr_map.get("LOCATION/ADDRESS_3") or [""])[0],
+        (attr_map.get("LOCATION/ADDRESS_4") or [""])[0],
+    ]
+    location_parts: list[str] = []
+    seen_locations: set[str] = set()
+    for candidate in location_candidates:
+        cleaned = _clean_text(candidate)
+        normalized = cleaned.casefold()
+        if cleaned and normalized not in seen_locations:
+            location_parts.append(cleaned)
+            seen_locations.add(normalized)
+    if location_parts:
+        detail_data["location"] = ", ".join(location_parts)
+
+    breadcrumbs = advert_details.get("breadcrumbs") or []
+    category_segments = [
+        _clean_text(crumb.get("displayName"))
+        for crumb in breadcrumbs
+        if isinstance(crumb, dict)
+    ]
+    category_segments = [segment for segment in category_segments if segment]
+    category_segments = [
+        segment
+        for segment in category_segments
+        if segment.casefold() not in {"startseite", "marktplatz"}
+    ]
+    if category_segments:
+        detail_data["category_path"] = " > ".join(category_segments)
+
+    return detail_data
+
+
+def _merge_detail_data(listing: dict, detail_data: dict) -> dict:
+    """Merge detail-page values into a listing dictionary."""
+    merged = dict(listing)
+
+    if detail_data.get("description"):
+        merged["description"] = detail_data["description"]
+
+    for key in ("published_at", "seller_name", "item_condition", "category_path"):
+        value = detail_data.get(key)
+        if value not in (None, ""):
+            merged[key] = value
+
+    for key in ("price", "location", "image_url"):
+        if merged.get(key) in (None, "") and detail_data.get(key) not in (None, ""):
+            merged[key] = detail_data[key]
+
+    return merged
+
+
+def _enrich_results_with_details(results: list[dict], timeout: int) -> list[dict]:
+    """Fetch detail pages and enrich listings with additional information."""
+    if not results:
+        return results
+
+    enriched_results = []
+    for index, item in enumerate(results, start=1):
+        listing = dict(item)
+        listing.setdefault("seller_name", None)
+        listing.setdefault("item_condition", None)
+        listing.setdefault("category_path", None)
+
+        detail_url = listing.get("url")
+        if not detail_url:
+            enriched_results.append(listing)
+            continue
+
+        try:
+            response = requests.get(detail_url, headers=HEADERS, timeout=timeout)
+            response.raise_for_status()
+            detail_data = _extract_detail_data(response.text)
+            if detail_data:
+                listing = _merge_detail_data(listing, detail_data)
+        except Exception as exc:
+            logger.debug("Failed to enrich listing from '%s': %s", detail_url, exc)
+
+        enriched_results.append(listing)
+
+        if index % 25 == 0 or index == len(results):
+            logger.info(
+                "Detail enrichment progress: %d/%d listings",
+                index,
+                len(results),
+            )
+
+    return enriched_results
+
+
 def _extract_next_data_products(html: str) -> list[dict]:
     """
     Extract products from the Next.js __NEXT_DATA__ JSON payload used by willhaben pages.
@@ -210,18 +442,8 @@ def _extract_next_data_products(html: str) -> list[dict]:
             - ``url``: str – The absolute URL to the listing.
             - ``description``: str – A short description of the listing.
     """
-    match = re.search(
-        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    if not match:
-        return []
-
-    try:
-        payload = json.loads(match.group(1))
-    except json.JSONDecodeError as exc:
-        logger.warning("Failed to decode __NEXT_DATA__ payload: %s", exc)
+    payload = _extract_next_data_payload(html)
+    if not payload:
         return []
 
     page_props = (payload.get("props") or {}).get("pageProps") or {}
@@ -267,6 +489,8 @@ def _extract_next_data_products(html: str) -> list[dict]:
         detail_url = ""
         if "iadShareLink" in link_by_id:
             detail_url = link_by_id["iadShareLink"].get("uri") or ""
+        if not detail_url and "adDetailLink" in link_by_id:
+            detail_url = link_by_id["adDetailLink"].get("uri") or ""
         if not detail_url and "seoSelfLink" in link_by_id:
             seo_uri = link_by_id["seoSelfLink"].get("uri") or ""
             # seo_uri looks like: https://api.willhaben.at/restapi/v2/atverz/kaufen-und-verkaufen/d/{slug}/
@@ -291,17 +515,26 @@ def _extract_next_data_products(html: str) -> list[dict]:
                 "image_url": image_url,
                 "description": description,
                 "published_at": published_at,
+                "seller_name": None,
+                "item_condition": None,
+                "category_path": None,
             }
         )
 
     return [item for item in parsed if item["title"]]
 
 
-def scrape_willhaben(keyword: str, max_pages: int = 5, timeout: int = 10) -> list[dict]:
+def scrape_willhaben(
+    keyword: str,
+    max_pages: int = 5,
+    timeout: int = 10,
+    include_details: bool = True,
+) -> list[dict]:
     """
     Scrape willhaben.at marketplace for *keyword* and return a list of product dicts.
 
-    Each dict contains: title, price (float|None), location, url, image_url, description.
+    Each dict contains: title, price (float|None), location, url, image_url,
+    description, published_at, seller_name, item_condition and category_path.
     """
     results = []
     logger.info(
@@ -360,5 +593,9 @@ def scrape_willhaben(keyword: str, max_pages: int = 5, timeout: int = 10) -> lis
             time.sleep(1)
 
     logger.info("Scraping done for '%s': %d listings total", keyword, len(results))
+
+    if include_details and results:
+        logger.info("Enriching %d listings with detail information", len(results))
+        results = _enrich_results_with_details(results, timeout=timeout)
 
     return results

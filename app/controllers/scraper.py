@@ -108,15 +108,19 @@ def search():
 
         max_pages = max(1, max_pages)
         timeout = current_app.config.get("SCRAPE_REQUEST_TIMEOUT", 10)
+        include_details = bool(request.form.get("include_details"))
 
         logger.info(
-            "Search requested: keyword='%s', max_pages=%d, timeout=%ss",
+            "Search requested: keyword='%s', max_pages=%d, timeout=%ss, include_details=%s",
             keyword,
             max_pages,
             timeout,
+            include_details,
         )
 
-        raw_products = scrape_willhaben(keyword, max_pages=max_pages, timeout=timeout)
+        raw_products = scrape_willhaben(
+            keyword, max_pages=max_pages, timeout=timeout, include_details=include_details
+        )
         logger.info("Search finished: keyword='%s', products=%d", keyword, len(raw_products))
 
         search_query = SearchQuery(keyword=keyword)
@@ -134,6 +138,9 @@ def search():
                 image_url=item.get("image_url"),
                 description=item["description"],
                 published_at=item.get("published_at"),
+                seller_name=item.get("seller_name"),
+                item_condition=item.get("item_condition"),
+                category_path=item.get("category_path"),
             )
             db.session.add(product)
             products_to_classify.append(product)

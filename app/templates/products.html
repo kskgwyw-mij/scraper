@@ -69,6 +69,15 @@
         {% if product.location %}
           <p class="product-location">📍 {{ product.location }}</p>
         {% endif %}
+        {% if product.seller_name %}
+          <p class="product-meta text-muted">Verkaeufer: {{ product.seller_name }}</p>
+        {% endif %}
+        {% if product.item_condition %}
+          <p class="product-meta text-muted">Zustand: {{ product.item_condition }}</p>
+        {% endif %}
+        {% if product.category_path %}
+          <p class="product-meta text-muted">Kategorie: {{ product.category_path }}</p>
+        {% endif %}
         {% if product.description %}
           <p class="product-description text-muted">{{ product.description[:150] }}{% if product.description | length > 150 %}…{% endif %}</p>
         {% endif %}
@@ -133,6 +142,15 @@
         </p>
         {% if product.location %}
           <p class="product-location">📍 {{ product.location }}</p>
+        {% endif %}
+        {% if product.seller_name %}
+          <p class="product-meta text-muted">Verkaeufer: {{ product.seller_name }}</p>
+        {% endif %}
+        {% if product.item_condition %}
+          <p class="product-meta text-muted">Zustand: {{ product.item_condition }}</p>
+        {% endif %}
+        {% if product.category_path %}
+          <p class="product-meta text-muted">Kategorie: {{ product.category_path }}</p>
         {% endif %}
         {% if product.description %}
           <p class="product-description text-muted">{{ product.description[:150] }}{% if product.description | length > 150 %}…{% endif %}</p>

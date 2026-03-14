@@ -13,7 +13,8 @@ Dann im Browser öffnen: http://localhost:5000
 
 ## Funktionen
 - Suche nach beliebigen Produkten auf willhaben.at
-- Anzeige mit Bildern, Preis und Standort
+- Detailseiten-Scraping fuer Zusatzinfos (z. B. Verkaeufer, Zustand, Kategorie)
+- Anzeige mit Bildern, Preis, Standort und Detailinfos
 - Automatische Preisprognose mit Perzentilen
 - Katalog aller gespeicherten Suchen mit Filter & Sortierung
 

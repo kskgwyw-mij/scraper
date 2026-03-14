@@ -14,4 +14,5 @@ def index():
         "index.html",
         recent_searches=recent_searches,
         default_max_pages=current_app.config.get("SCRAPE_MAX_PAGES", 5),
+        default_include_details=current_app.config.get("SCRAPE_INCLUDE_DETAILS", True),
     )

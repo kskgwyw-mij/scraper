@@ -6,6 +6,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SCRAPE_REQUEST_TIMEOUT = 10
     SCRAPE_MAX_PAGES = 5
+    SCRAPE_INCLUDE_DETAILS = True
 
     # Willhaben base URL for search
     WILLHABEN_SEARCH_URL = (

@@ -24,6 +24,9 @@ def test_search_post_scrapes_and_redirects(client, db):
             "url": "https://www.willhaben.at/test",
             "image_url": "https://cache.willhaben.at/testprodukt_hoved.jpg",
             "description": "Ein Test",
+            "seller_name": "Test Shop",
+            "item_condition": "Used Condition",
+            "category_path": "Elektronik > Smartphones",
         }
     ]
 
@@ -39,6 +42,9 @@ def test_search_post_scrapes_and_redirects(client, db):
 
     stored_product = Product.query.one()
     assert stored_product.image_url == "https://cache.willhaben.at/testprodukt_hoved.jpg"
+    assert stored_product.seller_name == "Test Shop"
+    assert stored_product.item_condition == "Used Condition"
+    assert stored_product.category_path == "Elektronik > Smartphones"
 
 
 def test_search_post_passes_form_max_pages(client, db):
@@ -52,7 +58,9 @@ def test_search_post_passes_form_max_pages(client, db):
         )
 
     assert response.status_code == 302
-    mock_scrape.assert_called_once_with("testprodukt", max_pages=7, timeout=10)
+    mock_scrape.assert_called_once_with(
+        "testprodukt", max_pages=7, timeout=10, include_details=False
+    )
 
 
 def test_index_page_contains_default_max_pages(client):
@@ -61,6 +69,41 @@ def test_index_page_contains_default_max_pages(client):
     assert response.status_code == 200
     assert b'name="max_pages"' in response.data
     assert b'value="5"' in response.data
+
+
+def test_index_page_contains_include_details_checkbox(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert b'name="include_details"' in response.data
+
+
+def test_search_post_passes_include_details_true(client, db):
+    from unittest.mock import patch
+
+    with patch("app.controllers.scraper.scrape_willhaben", return_value=[]) as mock_scrape:
+        client.post(
+            "/scraper/search",
+            data={"keyword": "test", "include_details": "1"},
+            follow_redirects=False,
+        )
+
+    call_kwargs = mock_scrape.call_args
+    assert call_kwargs.kwargs.get("include_details") is True
+
+
+def test_search_post_passes_include_details_false_when_unchecked(client, db):
+    from unittest.mock import patch
+
+    with patch("app.controllers.scraper.scrape_willhaben", return_value=[]) as mock_scrape:
+        client.post(
+            "/scraper/search",
+            data={"keyword": "test"},
+            follow_redirects=False,
+        )
+
+    call_kwargs = mock_scrape.call_args
+    assert call_kwargs.kwargs.get("include_details") is False
 
 
 def test_products_page(client, db):

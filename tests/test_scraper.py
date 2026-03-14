@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 from app.services.willhaben_scraper import (
+    _extract_detail_data,
     _extract_next_data_products,
     _parse_price,
     _parse_listing,
@@ -311,3 +312,160 @@ def test_extract_next_data_products_without_published_at():
 
     assert len(result) == 1
     assert result[0]["published_at"] is None
+
+
+def test_extract_detail_data_from_detail_page_payloads():
+    detail_payload = {
+        "props": {
+            "pageProps": {
+                "advertDetails": {
+                    "description": "Ausfuehrliche <b>Beschreibung</b> mit mehr Infos.",
+                    "publishedDate": "2024-03-05T14:00:00",
+                    "organisationDetails": {"orgName": "Tech Shop"},
+                    "advertAddressDetails": {
+                        "postalName": "Wien",
+                        "district": "Wieden",
+                        "province": "Wien",
+                    },
+                    "breadcrumbs": [
+                        {"displayName": "Startseite"},
+                        {"displayName": "Marktplatz"},
+                        {"displayName": "Elektronik"},
+                        {"displayName": "Smartphones"},
+                    ],
+                    "attributes": {
+                        "attribute": [
+                            {"name": "LOCATION/ADDRESS_2", "values": ["Wien"]},
+                        ]
+                    },
+                }
+            }
+        }
+    }
+    product_ld = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "offers": {
+            "@type": "Offer",
+            "price": "799",
+            "itemCondition": "UsedCondition",
+            "seller": {"@type": "Organization", "name": "LD Seller"},
+        },
+    }
+    html = (
+        "<html><head>"
+        f'<script type="application/ld+json">{json.dumps(product_ld)}</script>'
+        "</head><body>"
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(detail_payload)}"
+        "</script>"
+        "</body></html>"
+    )
+
+    result = _extract_detail_data(html)
+
+    assert result["description"] == "Ausfuehrliche Beschreibung mit mehr Infos."
+    assert result["published_at"] == datetime(2024, 3, 5, 14, 0, 0)
+    assert result["seller_name"] == "LD Seller"
+    assert result["price"] == pytest.approx(799.0)
+    assert result["item_condition"] == "Used Condition"
+    assert result["location"] == "Wien, Wieden"
+    assert result["category_path"] == "Elektronik > Smartphones"
+
+
+def test_scrape_willhaben_enriches_with_detail_information():
+    search_payload = {
+        "props": {
+            "pageProps": {
+                "searchResult": {
+                    "advertSummaryList": {
+                        "advertSummary": [
+                            {
+                                "id": "42",
+                                "description": "Kurzbeschreibung",
+                                "attributes": {
+                                    "attribute": [
+                                        {"name": "HEADING", "values": ["iPhone 14 Pro"]},
+                                        {"name": "PRICE", "values": ["€ 750,00"]},
+                                        {"name": "LOCATION", "values": ["Wien"]},
+                                    ]
+                                },
+                                "contextLinkList": {
+                                    "contextLink": [
+                                        {
+                                            "id": "adDetailLink",
+                                            "uri": "/iad/object?adId=42",
+                                        }
+                                    ]
+                                },
+                                "advertImageList": {"advertImage": []},
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+    search_html = (
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(search_payload)}"
+        "</script>"
+    )
+
+    detail_payload = {
+        "props": {
+            "pageProps": {
+                "advertDetails": {
+                    "description": "Vollstaendige Detailbeschreibung",
+                    "publishedDate": "2024-04-10T09:15:00",
+                    "organisationDetails": {"orgName": "Phone Shop"},
+                    "breadcrumbs": [
+                        {"displayName": "Startseite"},
+                        {"displayName": "Marktplatz"},
+                        {"displayName": "Elektronik"},
+                    ],
+                }
+            }
+        }
+    }
+    detail_ld = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "offers": {
+            "@type": "Offer",
+            "itemCondition": "NewCondition",
+            "seller": {"@type": "Organization", "name": "Phone Shop"},
+        },
+    }
+    detail_html = (
+        "<html><head>"
+        f'<script type="application/ld+json">{json.dumps(detail_ld)}</script>'
+        "</head><body>"
+        '<script id="__NEXT_DATA__" type="application/json">'
+        f"{json.dumps(detail_payload)}"
+        "</script>"
+        "</body></html>"
+    )
+
+    search_response = MagicMock()
+    search_response.raise_for_status.return_value = None
+    search_response.text = search_html
+
+    detail_response = MagicMock()
+    detail_response.raise_for_status.return_value = None
+    detail_response.text = detail_html
+
+    with patch(
+        "app.services.willhaben_scraper.requests.get",
+        side_effect=[search_response, detail_response],
+    ):
+        with patch("app.services.willhaben_scraper.time.sleep"):
+            result = scrape_willhaben("iphone", max_pages=1, timeout=10)
+
+    assert len(result) == 1
+    assert result[0]["title"] == "iPhone 14 Pro"
+    assert result[0]["description"] == "Vollstaendige Detailbeschreibung"
+    assert result[0]["seller_name"] == "Phone Shop"
+    assert result[0]["item_condition"] == "New Condition"
+    assert result[0]["category_path"] == "Elektronik"
+    assert result[0]["published_at"] == datetime(2024, 4, 10, 9, 15, 0)

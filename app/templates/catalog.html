@@ -212,6 +212,15 @@
         {% if product.location %}
           <p class="product-location">📍 {{ product.location }}</p>
         {% endif %}
+        {% if product.seller_name %}
+          <p class="product-meta text-muted">Verkaeufer: {{ product.seller_name }}</p>
+        {% endif %}
+        {% if product.item_condition %}
+          <p class="product-meta text-muted">Zustand: {{ product.item_condition }}</p>
+        {% endif %}
+        {% if product.category_path %}
+          <p class="product-meta text-muted">Kategorie: {{ product.category_path }}</p>
+        {% endif %}
         {% if product.search_query %}
           <p class="product-search-query" title="Suchbegriff">
             🔍 {{ product.search_query.keyword }}

@@ -34,6 +34,9 @@ class Product(db.Model):
     image_url = db.Column(db.String(1000), nullable=True)
     description = db.Column(db.Text, nullable=True)
     published_at = db.Column(db.DateTime, nullable=True)
+    seller_name = db.Column(db.String(255), nullable=True)
+    item_condition = db.Column(db.String(255), nullable=True)
+    category_path = db.Column(db.String(1000), nullable=True)
     scraped_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     image_match_score = db.Column(db.Float, nullable=True)
     is_better_result = db.Column(db.Boolean, nullable=False, default=False)
@@ -48,6 +51,9 @@ class Product(db.Model):
             "image_url": self.image_url,
             "description": self.description,
             "published_at": self.published_at.isoformat() if self.published_at else None,
+            "seller_name": self.seller_name,
+            "item_condition": self.item_condition,
+            "category_path": self.category_path,
             "scraped_at": self.scraped_at.isoformat() if self.scraped_at else None,
             "image_match_score": self.image_match_score,
             "is_better_result": self.is_better_result,

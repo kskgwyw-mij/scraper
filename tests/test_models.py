@@ -24,6 +24,9 @@ def test_create_product(db):
         url="https://www.willhaben.at/example",
         image_url="https://cache.willhaben.at/example_hoved.jpg",
         description="Sehr guter Zustand",
+        seller_name="Bike Store",
+        item_condition="Used Condition",
+        category_path="Sport > Fahrraeder",
     )
     db.session.add(p)
     db.session.commit()
@@ -31,6 +34,9 @@ def test_create_product(db):
     assert p.id is not None
     assert p.price == 149.99
     assert p.image_url == "https://cache.willhaben.at/example_hoved.jpg"
+    assert p.seller_name == "Bike Store"
+    assert p.item_condition == "Used Condition"
+    assert p.category_path == "Sport > Fahrraeder"
 
 
 def test_product_to_dict(db):
@@ -44,6 +50,9 @@ def test_product_to_dict(db):
         price=200.0,
         location="Graz",
         image_url="https://cache.willhaben.at/sofa_hoved.jpg",
+        seller_name="Moebelhaus Test",
+        item_condition="New Condition",
+        category_path="Wohnen > Sofas",
     )
     db.session.add(p)
     db.session.commit()
@@ -54,6 +63,9 @@ def test_product_to_dict(db):
     assert d["location"] == "Graz"
     assert d["image_url"] == "https://cache.willhaben.at/sofa_hoved.jpg"
     assert d["published_at"] is None
+    assert d["seller_name"] == "Moebelhaus Test"
+    assert d["item_condition"] == "New Condition"
+    assert d["category_path"] == "Wohnen > Sofas"
 
 
 def test_product_published_at(db):
